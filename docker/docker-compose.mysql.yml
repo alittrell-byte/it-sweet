@@ -1,0 +1,24 @@
+# Swaps Postgres for MySQL. Usage:
+#   docker compose -f docker/docker-compose.yml -f docker/docker-compose.mysql.yml up
+services:
+  db:
+    image: mysql:8.4
+    environment:
+      MYSQL_USER: ${DB_USER:-helpdesk}
+      MYSQL_PASSWORD: ${DB_PASSWORD:-helpdesk}
+      MYSQL_DATABASE: ${DB_NAME:-helpdesk}
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-helpdesk_root}
+    volumes:
+      - db_data:/var/lib/mysql
+    ports:
+      - '3306:3306'
+    healthcheck:
+      test: ['CMD', 'mysqladmin', 'ping', '-h', 'localhost', '-u', 'root', '-p${DB_ROOT_PASSWORD:-helpdesk_root}']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    environment:
+      DB_DIALECT: mysql
+      DB_PORT: 3306

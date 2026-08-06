@@ -1,0 +1,76 @@
+export interface PermissionDefinition {
+  key: string;
+  label: string;
+}
+
+export interface PermissionModule {
+  module: string;
+  label: string;
+  permissions: PermissionDefinition[];
+}
+
+// The full set of grantable, checkbox-editable permissions, grouped by module. Each new
+// module (Assets, Log Monitoring, Patch Management, ...) adds its own entry here and
+// wires matching requirePermission(...) checks into its routes - the user edit page
+// renders this catalog generically, so no frontend changes are needed to pick up a
+// newly added module's permissions.
+export const PERMISSION_CATALOG: PermissionModule[] = [
+  {
+    module: 'users',
+    label: 'User Management',
+    permissions: [
+      { key: 'users.view', label: 'View users' },
+      { key: 'users.create', label: 'Create users' },
+      { key: 'users.edit', label: 'Edit users' },
+      { key: 'users.delete', label: 'Delete users' },
+      { key: 'users.manage_permissions', label: "Manage other users' permissions" },
+    ],
+  },
+  {
+    module: 'tickets',
+    label: 'Ticketing',
+    permissions: [
+      { key: 'tickets.view_dashboard', label: 'View the ticket dashboard' },
+      { key: 'tickets.manage_canned_responses', label: 'Manage canned responses' },
+    ],
+  },
+  {
+    module: 'notifications',
+    label: 'Notification Groups',
+    permissions: [{ key: 'notifications.manage_groups', label: 'Manage notification groups' }],
+  },
+  {
+    module: 'knowledge_base',
+    label: 'Knowledge Base',
+    permissions: [{ key: 'kb.manage', label: 'Create and edit KB articles' }],
+  },
+  {
+    module: 'assets',
+    label: 'Asset Management',
+    permissions: [
+      { key: 'assets.view', label: 'View assets' },
+      { key: 'assets.create', label: 'Create assets' },
+      { key: 'assets.edit', label: 'Edit assets' },
+      { key: 'assets.delete', label: 'Delete assets' },
+      { key: 'assets.assign', label: 'Assign, check out, and check in assets' },
+      { key: 'assets.manage_custom_fields', label: 'Manage custom field definitions' },
+      { key: 'assets.import_export', label: 'Bulk import/export assets via CSV' },
+    ],
+  },
+  {
+    module: 'logs',
+    label: 'Log Monitoring',
+    permissions: [
+      { key: 'logs.view', label: 'Search, tail, and view the log dashboard' },
+      { key: 'logs.manage_sources', label: 'Register/edit log sources and API keys' },
+      { key: 'logs.manage_alerts', label: 'Manage alert rules' },
+      { key: 'logs.manage_retention', label: 'Edit retention settings and trigger purges' },
+    ],
+  },
+];
+
+export const ALL_PERMISSION_KEYS: string[] = PERMISSION_CATALOG.flatMap((m) => m.permissions.map((p) => p.key));
+
+export function isValidPermissionKey(key: string): boolean {
+  return ALL_PERMISSION_KEYS.includes(key);
+}
