@@ -9,14 +9,21 @@ describe('parseAssetsCsv', () => {
       'Dell Laptop,hardware,available,SN123,Dell,2024-01-01,2027-01-01,,Spare unit,"{""color"":""black""}"';
     const [result] = parseAssetsCsv(csv);
     expect(result.status).toBe('parsed');
+    expect(result.vendorName).toBe('Dell');
     expect(result.data).toMatchObject({
       name: 'Dell Laptop',
       type: 'hardware',
       status: 'available',
       serialNumber: 'SN123',
-      vendor: 'Dell',
       customFields: { color: 'black' },
     });
+  });
+
+  it('reports a null vendorName when the vendor column is blank', () => {
+    const csv = 'name,type,vendor\nNo Vendor Widget,hardware,';
+    const [result] = parseAssetsCsv(csv);
+    expect(result.status).toBe('parsed');
+    expect(result.vendorName).toBeNull();
   });
 
   it('rejects a row missing the required name column', () => {

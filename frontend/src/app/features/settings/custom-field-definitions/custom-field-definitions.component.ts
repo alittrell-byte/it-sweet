@@ -1,6 +1,6 @@
 import { Component, OnInit, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { AssetCustomFieldDefinition, CustomFieldType } from '../../../core/models/asset.model';
+import { ASSET_TYPES, AssetCustomFieldDefinition, AssetType, CustomFieldType } from '../../../core/models/asset.model';
 import { extractApiError } from '../../../core/utils/api-error';
 import { AssetService } from '../../assets/services/asset.service';
 
@@ -41,6 +41,15 @@ import { AssetService } from '../../assets/services/asset.service';
             <option value="boolean">Boolean</option>
           </select>
         </div>
+        <div>
+          <label class="block text-xs text-gray-600">Applies to</label>
+          <select [ngModel]="assetType" (ngModelChange)="assetType = $event" name="assetType" class="border rounded px-2 py-1.5 text-sm">
+            <option [ngValue]="null">All asset types</option>
+            @for (t of types; track t) {
+              <option [value]="t">{{ t }}</option>
+            }
+          </select>
+        </div>
         <button type="submit" class="bg-slate-800 text-white rounded px-4 py-1.5 text-sm hover:bg-slate-700">Add</button>
       </form>
       @if (error()) {
@@ -52,7 +61,7 @@ import { AssetService } from '../../assets/services/asset.service';
           <div class="p-4 flex justify-between items-center">
             <div>
               <div class="font-medium text-sm">{{ def.label }}</div>
-              <div class="text-xs text-gray-500">{{ def.key }} · {{ def.fieldType }}</div>
+              <div class="text-xs text-gray-500">{{ def.key }} · {{ def.fieldType }} · {{ def.assetType ?? 'all types' }}</div>
             </div>
             <button (click)="remove(def.id)" class="text-xs text-red-600 hover:underline">Delete</button>
           </div>
@@ -69,6 +78,8 @@ export class CustomFieldDefinitionsComponent implements OnInit {
   key = '';
   label = '';
   fieldType: CustomFieldType = 'text';
+  assetType: AssetType | null = null;
+  readonly types = ASSET_TYPES;
 
   constructor(private readonly assetService: AssetService) {}
 
@@ -93,9 +104,15 @@ export class CustomFieldDefinitionsComponent implements OnInit {
   async create(): Promise<void> {
     this.error.set(null);
     try {
-      await this.assetService.createCustomFieldDefinition({ key: this.key, label: this.label, fieldType: this.fieldType });
+      await this.assetService.createCustomFieldDefinition({
+        key: this.key,
+        label: this.label,
+        fieldType: this.fieldType,
+        assetType: this.assetType,
+      });
       this.key = '';
       this.label = '';
+      this.assetType = null;
       await this.load();
     } catch (err) {
       this.error.set(extractApiError(err, 'Could not create the field.'));

@@ -137,6 +137,8 @@ export class ShellComponent {
           { label: 'All Assets', path: '/assets' },
           ...(this.auth.hasPermission('assets.create') ? [{ label: '+ Quick Add', path: '/assets/new' }] : []),
           { label: 'License Compliance', path: '/assets/license-compliance' },
+          { label: 'Depreciation Report', path: '/assets/depreciation-report' },
+          ...(this.auth.hasPermission('assets.manage_vendors') ? [{ label: 'Vendors & Contracts', path: '/settings/vendors' }] : []),
           ...(this.auth.hasPermission('assets.manage_custom_fields')
             ? [{ label: 'Custom Fields', path: '/settings/custom-field-definitions' }]
             : []),

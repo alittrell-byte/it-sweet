@@ -3,11 +3,20 @@ import { Component, OnInit, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { AuthService } from '../../../core/services/auth.service';
-import { Asset, AssetAssignment, AssetCustomFieldDefinition, ASSET_STATUSES, AssetStatus } from '../../../core/models/asset.model';
+import {
+  Asset,
+  AssetAssignment,
+  AssetCustomFieldDefinition,
+  AssetHistoryEntry,
+  ASSET_STATUSES,
+  AssetStatus,
+  Vendor,
+} from '../../../core/models/asset.model';
 import { Ticket } from '../../../core/models/ticket.model';
 import { User } from '../../../core/models/user.model';
-import { AssetService } from '../services/asset.service';
+import { AssetService, UpdateAssetInput } from '../services/asset.service';
 import { UserService } from '../../users/services/user.service';
+import { extractApiError } from '../../../core/utils/api-error';
 
 @Component({
   selector: 'app-asset-detail',
@@ -18,34 +27,152 @@ import { UserService } from '../../users/services/user.service';
       <div class="max-w-3xl mx-auto space-y-6">
         <div class="bg-white p-6 rounded-lg shadow">
           <div class="flex items-center justify-between mb-4">
-            <h1 class="text-xl font-semibold">{{ a.name }}</h1>
-            <select
-              [ngModel]="a.status"
-              (ngModelChange)="changeStatus($event)"
-              [disabled]="!auth.hasPermission('assets.edit')"
-              class="border rounded px-2 py-1 text-sm"
-            >
-              @for (s of statuses; track s) {
-                <option [value]="s">{{ s }}</option>
+            @if (editable) {
+              <input [(ngModel)]="form.name" class="text-xl font-semibold border-b border-gray-300 focus:outline-none" />
+            } @else {
+              <h1 class="text-xl font-semibold">{{ a.name }}</h1>
+            }
+            <div class="flex gap-2 items-center">
+              @if (a.status === 'ordered' && editable) {
+                <button (click)="receive()" class="text-sm bg-emerald-600 text-white rounded px-3 py-1.5 hover:bg-emerald-700">
+                  Mark Received
+                </button>
               }
-            </select>
+              <select
+                [ngModel]="a.status"
+                (ngModelChange)="changeStatus($event)"
+                [disabled]="!editable"
+                class="border rounded px-2 py-1 text-sm"
+              >
+                @for (s of statuses; track s) {
+                  <option [value]="s">{{ s }}</option>
+                }
+              </select>
+            </div>
           </div>
 
           <div class="grid grid-cols-2 gap-4 text-sm">
             <div><span class="text-gray-500">Type:</span> {{ a.type }}</div>
-            <div><span class="text-gray-500">Serial:</span> {{ a.serialNumber || '-' }}</div>
-            <div><span class="text-gray-500">Vendor:</span> {{ a.vendor || '-' }}</div>
-            <div><span class="text-gray-500">Purchased:</span> {{ a.purchaseDate || '-' }}</div>
-            <div><span class="text-gray-500">Warranty Expiry:</span> {{ a.warrantyExpiry || '-' }}</div>
+            <div>
+              <span class="text-gray-500">Serial:</span>
+              @if (editable) {
+                <input [(ngModel)]="form.serialNumber" class="border rounded px-2 py-0.5 text-sm w-40" />
+              } @else {
+                {{ a.serialNumber || '-' }}
+              }
+            </div>
+            <div>
+              <span class="text-gray-500">Vendor:</span>
+              @if (editable) {
+                <select [(ngModel)]="form.vendorId" class="border rounded px-2 py-0.5 text-sm">
+                  <option [ngValue]="null">None</option>
+                  @for (v of vendors(); track v.id) {
+                    <option [ngValue]="v.id">{{ v.name }}</option>
+                  }
+                </select>
+              } @else {
+                {{ a.vendor?.name || '-' }}
+              }
+            </div>
+            <div>
+              <span class="text-gray-500">Purchased:</span>
+              @if (editable) {
+                <input type="date" [(ngModel)]="form.purchaseDate" class="border rounded px-2 py-0.5 text-sm" />
+              } @else {
+                {{ a.purchaseDate || '-' }}
+              }
+            </div>
+            <div>
+              <span class="text-gray-500">Warranty Expiry:</span>
+              @if (editable) {
+                <input type="date" [(ngModel)]="form.warrantyExpiry" class="border rounded px-2 py-0.5 text-sm" />
+              } @else {
+                {{ a.warrantyExpiry || '-' }}
+              }
+            </div>
             @if (a.type === 'software_license') {
-              <div><span class="text-gray-500">Seats Purchased:</span> {{ a.licenseSeatsPurchased ?? 0 }}</div>
+              <div>
+                <span class="text-gray-500">Seats Purchased:</span>
+                @if (editable) {
+                  <input type="number" min="0" [(ngModel)]="form.licenseSeatsPurchased" class="border rounded px-2 py-0.5 text-sm w-20" />
+                } @else {
+                  {{ a.licenseSeatsPurchased ?? 0 }}
+                }
+              </div>
+            }
+          </div>
+
+          <div class="mt-4 pt-4 border-t text-sm grid grid-cols-2 gap-4">
+            <div>
+              <span class="text-gray-500">Purchase Cost:</span>
+              @if (editable) {
+                <input type="number" min="0" step="0.01" [(ngModel)]="form.purchaseCost" class="border rounded px-2 py-0.5 text-sm w-28" />
+              } @else {
+                {{ a.purchaseCost != null ? '$' + a.purchaseCost : '-' }}
+              }
+            </div>
+            <div>
+              <span class="text-gray-500">Depreciation:</span>
+              @if (editable) {
+                <select [(ngModel)]="form.depreciationMethod" class="border rounded px-2 py-0.5 text-sm">
+                  <option value="none">None</option>
+                  <option value="straight_line">Straight-line</option>
+                </select>
+              } @else {
+                {{ a.depreciationMethod === 'straight_line' ? 'Straight-line' : 'None' }}
+              }
+            </div>
+            @if ((editable && form.depreciationMethod === 'straight_line') || a.depreciationMethod === 'straight_line') {
+              <div>
+                <span class="text-gray-500">Useful Life (months):</span>
+                @if (editable) {
+                  <input type="number" min="1" [(ngModel)]="form.usefulLifeMonths" class="border rounded px-2 py-0.5 text-sm w-20" />
+                } @else {
+                  {{ a.usefulLifeMonths ?? '-' }}
+                }
+              </div>
+            }
+          </div>
+
+          <div class="mt-4 pt-4 border-t">
+            <label class="block text-sm text-gray-500 mb-1">Notes</label>
+            @if (editable) {
+              <textarea [(ngModel)]="form.notes" rows="2" class="w-full border rounded px-2 py-1.5 text-sm"></textarea>
+            } @else {
+              <p class="text-sm whitespace-pre-wrap">{{ a.notes || '-' }}</p>
             }
           </div>
 
           @if (customFieldDefs().length > 0) {
-            <div class="mt-4 pt-4 border-t text-sm">
+            <div class="mt-4 pt-4 border-t text-sm space-y-2">
               @for (def of customFieldDefs(); track def.key) {
-                <div><span class="text-gray-500">{{ def.label }}:</span> {{ a.customFields[def.key] ?? '-' }}</div>
+                <div>
+                  <label class="text-gray-500">{{ def.label }}:</label>
+                  @if (editable) {
+                    <input
+                      [type]="def.fieldType === 'number' ? 'number' : def.fieldType === 'date' ? 'date' : 'text'"
+                      [ngModel]="form.customFields![def.key]"
+                      (ngModelChange)="setCustomField(def.key, $event)"
+                      class="border rounded px-2 py-0.5 text-sm"
+                    />
+                  } @else {
+                    {{ a.customFields[def.key] ?? '-' }}
+                  }
+                </div>
+              }
+            </div>
+          }
+
+          @if (editable) {
+            <div class="mt-4 pt-4 border-t flex items-center gap-3">
+              <button (click)="save()" class="text-sm bg-slate-800 text-white rounded px-4 py-1.5 hover:bg-slate-700">
+                Save Changes
+              </button>
+              @if (saveError()) {
+                <span class="text-sm text-red-600">{{ saveError() }}</span>
+              }
+              @if (saveMessage()) {
+                <span class="text-sm text-green-700">{{ saveMessage() }}</span>
               }
             </div>
           }
@@ -53,55 +180,81 @@ import { UserService } from '../../users/services/user.service';
 
         <div class="bg-white p-6 rounded-lg shadow">
           <h2 class="font-medium mb-3">Assignment</h2>
-          @if (activeAssignment(); as active) {
-            <div class="text-sm mb-3">
-              <div>
-                Currently assigned to:
-                <strong>{{ active.assignedToUser?.displayName || active.assignedToLabel }}</strong>
-                ({{ active.assignedToType }})
+          @if (a.type === 'software_license') {
+            @for (act of activeAssignments(); track act.id) {
+              <div class="flex items-center justify-between text-sm py-1.5 border-b last:border-b-0">
+                <span>{{ act.assignedToUser?.displayName || act.assignedToLabel }}</span>
+                @if (auth.hasPermission('assets.assign')) {
+                  <button (click)="checkin(act.id)" class="text-xs text-red-600 hover:underline">Check In</button>
+                }
               </div>
-              @if (active.dueBackAt) {
-                <div class="text-gray-500">Due back {{ active.dueBackAt | date: 'medium' }}</div>
-              }
-            </div>
-            @if (auth.hasPermission('assets.assign')) {
-              <button (click)="checkin()" class="text-sm bg-slate-800 text-white rounded px-4 py-1.5 hover:bg-slate-700">
-                Check In
-              </button>
+            } @empty {
+              <p class="text-sm text-gray-400 mb-2">No active assignments.</p>
             }
-          } @else if (auth.hasPermission('assets.assign')) {
-            <div class="grid grid-cols-2 gap-6">
-              <form (ngSubmit)="checkout()" class="space-y-2">
-                <div class="text-sm font-medium">Check Out to a Person</div>
-                <select [(ngModel)]="checkoutUserId" name="checkoutUserId" class="w-full border rounded px-2 py-1.5 text-sm">
+            @if (auth.hasPermission('assets.assign')) {
+              <form (ngSubmit)="checkout()" class="mt-3 flex gap-2">
+                <select [(ngModel)]="checkoutUserId" name="checkoutUserId" class="flex-1 border rounded px-2 py-1.5 text-sm">
                   <option value="">Select user...</option>
                   @for (u of users(); track u.id) {
                     <option [value]="u.id">{{ u.displayName }}</option>
                   }
                 </select>
-                <input type="date" [(ngModel)]="dueBackAt" name="dueBackAt" class="w-full border rounded px-2 py-1.5 text-sm" />
                 <button type="submit" class="text-sm bg-slate-800 text-white rounded px-4 py-1.5 hover:bg-slate-700">
-                  Check Out
+                  Assign Seat
                 </button>
               </form>
-              <form (ngSubmit)="assignToLocation()" class="space-y-2">
-                <div class="text-sm font-medium">Assign to Location/Department</div>
-                <select [(ngModel)]="assignType" name="assignType" class="w-full border rounded px-2 py-1.5 text-sm">
-                  <option value="location">Location</option>
-                  <option value="department">Department</option>
-                </select>
-                <input
-                  type="text"
-                  [(ngModel)]="assignLabel"
-                  name="assignLabel"
-                  placeholder="e.g. Building 3 / IT Dept"
-                  class="w-full border rounded px-2 py-1.5 text-sm"
-                />
-                <button type="submit" class="text-sm bg-slate-800 text-white rounded px-4 py-1.5 hover:bg-slate-700">
-                  Assign
+            }
+          } @else {
+            @if (activeAssignments()[0]; as active) {
+              <div class="text-sm mb-3">
+                <div>
+                  Currently assigned to:
+                  <strong>{{ active.assignedToUser?.displayName || active.assignedToLabel }}</strong>
+                  ({{ active.assignedToType }})
+                </div>
+                @if (active.dueBackAt) {
+                  <div class="text-gray-500">Due back {{ active.dueBackAt | date: 'medium' }}</div>
+                }
+              </div>
+              @if (auth.hasPermission('assets.assign')) {
+                <button (click)="checkin()" class="text-sm bg-slate-800 text-white rounded px-4 py-1.5 hover:bg-slate-700">
+                  Check In
                 </button>
-              </form>
-            </div>
+              }
+            } @else if (auth.hasPermission('assets.assign')) {
+              <div class="grid grid-cols-2 gap-6">
+                <form (ngSubmit)="checkout()" class="space-y-2">
+                  <div class="text-sm font-medium">Check Out to a Person</div>
+                  <select [(ngModel)]="checkoutUserId" name="checkoutUserId" class="w-full border rounded px-2 py-1.5 text-sm">
+                    <option value="">Select user...</option>
+                    @for (u of users(); track u.id) {
+                      <option [value]="u.id">{{ u.displayName }}</option>
+                    }
+                  </select>
+                  <input type="date" [(ngModel)]="dueBackAt" name="dueBackAt" class="w-full border rounded px-2 py-1.5 text-sm" />
+                  <button type="submit" class="text-sm bg-slate-800 text-white rounded px-4 py-1.5 hover:bg-slate-700">
+                    Check Out
+                  </button>
+                </form>
+                <form (ngSubmit)="assignToLocation()" class="space-y-2">
+                  <div class="text-sm font-medium">Assign to Location/Department</div>
+                  <select [(ngModel)]="assignType" name="assignType" class="w-full border rounded px-2 py-1.5 text-sm">
+                    <option value="location">Location</option>
+                    <option value="department">Department</option>
+                  </select>
+                  <input
+                    type="text"
+                    [(ngModel)]="assignLabel"
+                    name="assignLabel"
+                    placeholder="e.g. Building 3 / IT Dept"
+                    class="w-full border rounded px-2 py-1.5 text-sm"
+                  />
+                  <button type="submit" class="text-sm bg-slate-800 text-white rounded px-4 py-1.5 hover:bg-slate-700">
+                    Assign
+                  </button>
+                </form>
+              </div>
+            }
           }
         </div>
 
@@ -114,6 +267,27 @@ import { UserService } from '../../users/services/user.service';
             </div>
           } @empty {
             <p class="text-sm text-gray-400">No assignment history.</p>
+          }
+        </div>
+
+        <div class="bg-white p-6 rounded-lg shadow">
+          <h2 class="font-medium mb-3">Change History</h2>
+          @for (h of auditLog(); track h.id) {
+            <div class="text-sm py-2 border-b last:border-b-0">
+              <div>
+                <span class="font-medium">{{ h.changedBy?.displayName || 'System' }}</span>
+                {{ actionLabel(h) }} - {{ h.createdAt | date: 'short' }}
+              </div>
+              @if (h.changes) {
+                <ul class="text-xs text-gray-500 ml-4 list-disc mt-1">
+                  @for (entry of changeEntries(h.changes); track entry.field) {
+                    <li>{{ entry.field }}: {{ entry.from ?? '(empty)' }} &rarr; {{ entry.to ?? '(empty)' }}</li>
+                  }
+                </ul>
+              }
+            </div>
+          } @empty {
+            <p class="text-sm text-gray-400">No change history yet.</p>
           }
         </div>
 
@@ -140,17 +314,23 @@ import { UserService } from '../../users/services/user.service';
 export class AssetDetailComponent implements OnInit {
   readonly asset = signal<Asset | null>(null);
   readonly history = signal<AssetAssignment[]>([]);
+  readonly activeAssignments = signal<AssetAssignment[]>([]);
+  readonly auditLog = signal<AssetHistoryEntry[]>([]);
   readonly linkedTickets = signal<Ticket[]>([]);
   readonly customFieldDefs = signal<AssetCustomFieldDefinition[]>([]);
+  readonly vendors = signal<Vendor[]>([]);
   readonly users = signal<User[]>([]);
   readonly statuses = ASSET_STATUSES;
+  readonly saveError = signal<string | null>(null);
+  readonly saveMessage = signal<string | null>(null);
+
+  form: UpdateAssetInput = {};
+  editable = false;
 
   checkoutUserId = '';
   dueBackAt = '';
   assignType: 'location' | 'department' = 'location';
   assignLabel = '';
-
-  readonly activeAssignment = signal<AssetAssignment | null>(null);
 
   constructor(
     readonly auth: AuthService,
@@ -165,27 +345,85 @@ export class AssetDetailComponent implements OnInit {
   }
 
   async ngOnInit(): Promise<void> {
+    this.editable = this.auth.hasPermission('assets.edit');
     await this.reload();
     this.customFieldDefs.set(await this.assetService.listCustomFieldDefinitions());
+    this.vendors.set(await this.assetService.listVendors());
     if (this.auth.hasPermission('assets.assign')) {
       this.users.set(await this.userService.list());
     }
   }
 
   async reload(): Promise<void> {
-    const [asset, history, linkedTickets] = await Promise.all([
+    const [asset, history, linkedTickets, auditLog] = await Promise.all([
       this.assetService.get(this.assetId),
       this.assetService.history(this.assetId),
       this.assetService.linkedTickets(this.assetId),
+      this.assetService.auditLog(this.assetId),
     ]);
     this.asset.set(asset);
     this.history.set(history);
+    this.activeAssignments.set(history.filter((h) => !h.unassignedAt));
     this.linkedTickets.set(linkedTickets);
-    this.activeAssignment.set(history.find((h) => !h.unassignedAt) ?? null);
+    this.auditLog.set(auditLog);
+    this.form = {
+      name: asset.name,
+      serialNumber: asset.serialNumber,
+      vendorId: asset.vendorId,
+      purchaseDate: asset.purchaseDate,
+      warrantyExpiry: asset.warrantyExpiry,
+      licenseSeatsPurchased: asset.licenseSeatsPurchased,
+      // Sequelize DECIMAL columns come back from the API as strings (both pg and mysql2 do this
+      // to avoid float precision loss) - coerced here so an unedited round-trip save still sends
+      // a real number, not the raw string, back to the update endpoint.
+      purchaseCost: asset.purchaseCost != null ? Number(asset.purchaseCost) : null,
+      depreciationMethod: asset.depreciationMethod,
+      usefulLifeMonths: asset.usefulLifeMonths,
+      notes: asset.notes,
+      customFields: { ...asset.customFields },
+    };
+  }
+
+  setCustomField(key: string, value: string | number | boolean | null): void {
+    this.form.customFields = { ...(this.form.customFields ?? {}), [key]: value };
+  }
+
+  changeEntries(changes: Record<string, { from: unknown; to: unknown }>): Array<{ field: string; from: unknown; to: unknown }> {
+    return Object.entries(changes).map(([field, v]) => ({ field, from: v.from, to: v.to }));
+  }
+
+  actionLabel(h: AssetHistoryEntry): string {
+    switch (h.action) {
+      case 'created':
+        return 'created this asset';
+      case 'deleted':
+        return 'deleted this asset';
+      case 'received':
+        return 'marked this asset received';
+      default:
+        return 'updated this asset';
+    }
+  }
+
+  async save(): Promise<void> {
+    this.saveError.set(null);
+    this.saveMessage.set(null);
+    try {
+      await this.assetService.update(this.assetId, this.form);
+      this.saveMessage.set('Saved.');
+      await this.reload();
+    } catch (err) {
+      this.saveError.set(extractApiError(err, 'Could not save changes.'));
+    }
   }
 
   async changeStatus(status: AssetStatus): Promise<void> {
     await this.assetService.update(this.assetId, { status });
+    await this.reload();
+  }
+
+  async receive(): Promise<void> {
+    await this.assetService.receive(this.assetId);
     await this.reload();
   }
 
@@ -207,8 +445,8 @@ export class AssetDetailComponent implements OnInit {
     await this.reload();
   }
 
-  async checkin(): Promise<void> {
-    await this.assetService.checkin(this.assetId);
+  async checkin(assignmentId?: string): Promise<void> {
+    await this.assetService.checkin(this.assetId, assignmentId);
     await this.reload();
   }
 

@@ -57,3 +57,26 @@ export function ticketCommentEmail(ticket: Ticket, isInternal: boolean): { subje
     ),
   };
 }
+
+export function licenseOverageEmail(assetName: string, seatsPurchased: number, seatsDeployed: number): { subject: string; html: string } {
+  return {
+    subject: `[License Alert] ${assetName} is over-allocated`,
+    html: wrap(
+      `${assetName} is over-allocated`,
+      `<p><strong>${assetName}</strong> has <strong>${seatsDeployed}</strong> active assignments but only
+       <strong>${seatsPurchased}</strong> seat${seatsPurchased === 1 ? '' : 's'} purchased.</p>
+       <p>Purchase additional seats or check in some assignments to bring this back into compliance.</p>`
+    ),
+  };
+}
+
+export function contractRenewalEmail(vendorName: string, contractType: string, endDate: string): { subject: string; html: string } {
+  return {
+    subject: `[Contract Renewal] ${vendorName} ${contractType} contract expires ${endDate}`,
+    html: wrap(
+      `Contract renewal coming up`,
+      `<p>The <strong>${contractType}</strong> contract with <strong>${vendorName}</strong> expires on
+       <strong>${endDate}</strong>.</p>`
+    ),
+  };
+}

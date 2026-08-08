@@ -1,6 +1,7 @@
 import { parse } from 'csv-parse/sync';
 import { stringify } from 'csv-stringify/sync';
 import { Asset, AssetStatus, AssetType } from './asset.model';
+import { Vendor } from './vendor.model';
 import { CreateAssetInput } from './assetService';
 
 const CSV_COLUMNS = [
@@ -17,15 +18,19 @@ const CSV_COLUMNS = [
 ] as const;
 
 const VALID_TYPES: AssetType[] = ['hardware', 'software_license', 'peripheral'];
-const VALID_STATUSES: AssetStatus[] = ['available', 'in_use', 'retired', 'lost', 'under_repair'];
+const VALID_STATUSES: AssetStatus[] = ['available', 'in_use', 'retired', 'lost', 'under_repair', 'ordered'];
 
+// The `vendor` column is a plain name string on both sides of the CSV boundary, even though
+// Asset itself stores a vendorId FK - export joins to Vendor for its name, and import resolves
+// (find-or-create) a Vendor by that name. Keeps the CSV format stable across the vendor-entity
+// migration instead of forcing spreadsheet users to know vendor UUIDs.
 export function assetsToCsv(assets: Asset[]): string {
   const rows = assets.map((asset) => ({
     name: asset.name,
     type: asset.type,
     status: asset.status,
     serialNumber: asset.serialNumber ?? '',
-    vendor: asset.vendor ?? '',
+    vendor: (asset as unknown as { vendor: Vendor | null }).vendor?.name ?? '',
     purchaseDate: asset.purchaseDate ?? '',
     warrantyExpiry: asset.warrantyExpiry ?? '',
     licenseSeatsPurchased: asset.licenseSeatsPurchased ?? '',
@@ -39,12 +44,16 @@ export interface CsvRowResult {
   row: number;
   status: 'parsed' | 'error';
   data?: CreateAssetInput;
+  /** Raw vendor name from the CSV, if any - resolved to a vendorId by the caller (needs DB access). */
+  vendorName?: string | null;
   error?: string;
 }
 
 // Parsing is kept separate from persistence (assetService.createAsset/updateAsset) so it
 // can be unit tested without a database, and so the import endpoint can report exactly
-// which rows failed and why before touching the DB.
+// which rows failed and why before touching the DB. Vendor name -> vendorId resolution also
+// needs the DB, so it's deliberately left to the caller (assetController.importCsv) too -
+// this function only reports the raw name back via `vendorName`.
 export function parseAssetsCsv(csvText: string): CsvRowResult[] {
   let records: Record<string, string>[];
   try {
@@ -87,12 +96,12 @@ export function parseAssetsCsv(csvText: string): CsvRowResult[] {
     return {
       row: rowNumber,
       status: 'parsed',
+      vendorName: record.vendor?.trim() || null,
       data: {
         name,
         type,
         status,
         serialNumber: record.serialNumber?.trim() || null,
-        vendor: record.vendor?.trim() || null,
         purchaseDate: record.purchaseDate?.trim() || null,
         warrantyExpiry: record.warrantyExpiry?.trim() || null,
         licenseSeatsPurchased,

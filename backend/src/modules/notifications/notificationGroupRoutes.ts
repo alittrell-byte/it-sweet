@@ -9,8 +9,17 @@ import { NotificationGroup } from './notificationGroup.model';
 export const notificationGroupRouter = Router();
 notificationGroupRouter.use(authenticate, requireRole('admin', 'technician'), requirePermission('notifications.manage_groups'));
 
-const createSchema = z.object({ name: z.string().min(1).max(150), notifyOnNewTicket: z.boolean().default(true) });
-const toggleSchema = z.object({ notifyOnNewTicket: z.boolean() });
+const createSchema = z.object({
+  name: z.string().min(1).max(150),
+  notifyOnNewTicket: z.boolean().default(true),
+  notifyOnLicenseOverage: z.boolean().default(false),
+  notifyOnContractRenewal: z.boolean().default(false),
+});
+const toggleSchema = z.object({
+  notifyOnNewTicket: z.boolean().optional(),
+  notifyOnLicenseOverage: z.boolean().optional(),
+  notifyOnContractRenewal: z.boolean().optional(),
+});
 const memberSchema = z.object({ userId: z.string().uuid() });
 
 notificationGroupRouter.get(
@@ -36,10 +45,10 @@ notificationGroupRouter.post(
 notificationGroupRouter.patch(
   '/:id/toggle',
   asyncHandler(async (req, res) => {
-    const { notifyOnNewTicket } = toggleSchema.parse(req.body);
+    const input = toggleSchema.parse(req.body);
     const group = await NotificationGroup.findByPk(req.params.id);
     if (!group) throw new NotFoundError('Notification group not found');
-    await group.update({ notifyOnNewTicket });
+    await group.update(input);
     res.json(group);
   })
 );

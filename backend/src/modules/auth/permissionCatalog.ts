@@ -67,6 +67,7 @@ export const PERMISSION_CATALOG: PermissionModule[] = [
       { key: 'assets.assign', label: 'Assign, check out, and check in assets' },
       { key: 'assets.manage_custom_fields', label: 'Manage custom field definitions' },
       { key: 'assets.import_export', label: 'Bulk import/export assets via CSV' },
+      { key: 'assets.manage_vendors', label: 'Manage vendors and contracts' },
     ],
   },
   {

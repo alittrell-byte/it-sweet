@@ -18,6 +18,8 @@ import { kbRouter } from './modules/knowledge-base/kbRoutes';
 import { kbCategoryRouter } from './modules/knowledge-base/categoryRoutes';
 import { kbArticleTemplateRouter } from './modules/knowledge-base/articleTemplateRoutes';
 import { assetRouter } from './modules/assets/assetRoutes';
+import { vendorRouter } from './modules/assets/vendorRoutes';
+import { contractRouter } from './modules/assets/contractRoutes';
 import { logRouter } from './modules/logs/logRoutes';
 import { alertRuleRouter } from './modules/logs/alertRoutes';
 import { ingestRouter } from './modules/logs/ingestRoutes';
@@ -46,6 +48,8 @@ export function createApp(): Express {
   app.use('/api/kb/templates', kbArticleTemplateRouter);
   app.use('/api/kb', kbRouter);
   app.use('/api/assets', assetRouter);
+  app.use('/api/vendors', vendorRouter);
+  app.use('/api/contracts', contractRouter);
   app.use('/api/logs/alert-rules', alertRuleRouter);
   app.use('/api/logs/ingest', ingestRouter);
   app.use('/api/logs', logRouter);

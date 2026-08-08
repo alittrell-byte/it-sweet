@@ -6,13 +6,15 @@ export interface NotificationGroupAttributes {
   name: string;
   // Master on/off switch: admins can pause "new ticket" alerts to this group without deleting it or its members.
   notifyOnNewTicket: boolean;
+  notifyOnLicenseOverage: boolean;
+  notifyOnContractRenewal: boolean;
   createdAt?: Date;
   updatedAt?: Date;
 }
 
 type NotificationGroupCreationAttributes = Optional<
   NotificationGroupAttributes,
-  'id' | 'notifyOnNewTicket' | 'createdAt' | 'updatedAt'
+  'id' | 'notifyOnNewTicket' | 'notifyOnLicenseOverage' | 'notifyOnContractRenewal' | 'createdAt' | 'updatedAt'
 >;
 
 export class NotificationGroup
@@ -22,6 +24,8 @@ export class NotificationGroup
   declare id: string;
   declare name: string;
   declare notifyOnNewTicket: boolean;
+  declare notifyOnLicenseOverage: boolean;
+  declare notifyOnContractRenewal: boolean;
   declare readonly createdAt: Date;
   declare readonly updatedAt: Date;
 }
@@ -35,6 +39,8 @@ NotificationGroup.init(
     },
     name: { type: DataTypes.STRING(150), allowNull: false, unique: true },
     notifyOnNewTicket: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: true },
+    notifyOnLicenseOverage: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
+    notifyOnContractRenewal: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
   },
   {
     sequelize,

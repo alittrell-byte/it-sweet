@@ -10,6 +10,8 @@ interface NotificationGroup {
   id: string;
   name: string;
   notifyOnNewTicket: boolean;
+  notifyOnLicenseOverage: boolean;
+  notifyOnContractRenewal: boolean;
   members: Array<{ id: string; displayName: string; email: string }>;
 }
 
@@ -41,9 +43,27 @@ interface NotificationGroup {
                 <div class="font-medium text-sm">{{ g.name }}</div>
                 <div class="text-xs text-gray-500">{{ g.members.length }} member(s) - click to manage</div>
               </button>
+            </div>
+            <div class="flex flex-wrap gap-4 mt-2">
               <label class="text-sm flex items-center gap-2">
-                <input type="checkbox" [ngModel]="g.notifyOnNewTicket" (ngModelChange)="toggle(g, $event)" />
-                Notify on new ticket
+                <input type="checkbox" [ngModel]="g.notifyOnNewTicket" (ngModelChange)="toggle(g, { notifyOnNewTicket: $event })" />
+                New ticket
+              </label>
+              <label class="text-sm flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  [ngModel]="g.notifyOnLicenseOverage"
+                  (ngModelChange)="toggle(g, { notifyOnLicenseOverage: $event })"
+                />
+                License over-allocated
+              </label>
+              <label class="text-sm flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  [ngModel]="g.notifyOnContractRenewal"
+                  (ngModelChange)="toggle(g, { notifyOnContractRenewal: $event })"
+                />
+                Contract renewal due
               </label>
             </div>
 
@@ -125,8 +145,8 @@ export class NotificationGroupsComponent implements OnInit {
     }
   }
 
-  async toggle(group: NotificationGroup, notifyOnNewTicket: boolean): Promise<void> {
-    await firstValueFrom(this.http.patch(`/api/notification-groups/${group.id}/toggle`, { notifyOnNewTicket }));
+  async toggle(group: NotificationGroup, changes: Partial<NotificationGroup>): Promise<void> {
+    await firstValueFrom(this.http.patch(`/api/notification-groups/${group.id}/toggle`, changes));
     await this.load();
   }
 

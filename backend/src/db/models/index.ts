@@ -34,6 +34,9 @@ import { TicketSavedView } from '../../modules/tickets/ticketSavedView.model';
 import { RecurringTicketTemplate } from '../../modules/tickets/recurringTicketTemplate.model';
 import { KbArticleTemplate } from '../../modules/knowledge-base/articleTemplate.model';
 import { KbArticleFeedback } from '../../modules/knowledge-base/articleFeedback.model';
+import { Vendor } from '../../modules/assets/vendor.model';
+import { Contract } from '../../modules/assets/contract.model';
+import { AssetHistory } from '../../modules/assets/assetHistory.model';
 
 // Ticket <-> User
 Ticket.belongsTo(User, { as: 'requester', foreignKey: 'requesterId' });
@@ -128,6 +131,17 @@ AssetAssignment.belongsTo(Asset, { as: 'asset', foreignKey: 'assetId' });
 AssetAssignment.belongsTo(User, { as: 'assignedToUser', foreignKey: 'assignedToUserId' });
 AssetAssignment.belongsTo(User, { as: 'assignedBy', foreignKey: 'assignedById' });
 
+// Vendors + Contracts
+Asset.belongsTo(Vendor, { as: 'vendor', foreignKey: 'vendorId' });
+Vendor.hasMany(Asset, { as: 'assets', foreignKey: 'vendorId' });
+Contract.belongsTo(Vendor, { as: 'vendor', foreignKey: 'vendorId' });
+Vendor.hasMany(Contract, { as: 'contracts', foreignKey: 'vendorId' });
+Contract.belongsTo(Asset, { as: 'asset', foreignKey: 'assetId' });
+Asset.hasMany(Contract, { as: 'contracts', foreignKey: 'assetId' });
+
+// Asset audit trail
+AssetHistory.belongsTo(User, { as: 'changedBy', foreignKey: 'changedById' });
+
 // Ticket <-> Assets (many-to-many via TicketAsset)
 Ticket.belongsToMany(Asset, { as: 'linkedAssets', through: TicketAsset, foreignKey: 'ticketId', otherKey: 'assetId' });
 Asset.belongsToMany(Ticket, { as: 'linkedTickets', through: TicketAsset, foreignKey: 'assetId', otherKey: 'ticketId' });
@@ -220,4 +234,7 @@ export {
   RecurringTicketTemplate,
   KbArticleTemplate,
   KbArticleFeedback,
+  Vendor,
+  Contract,
+  AssetHistory,
 };

@@ -116,6 +116,19 @@ export const routes: Routes = [
           ),
       },
       {
+        path: 'assets/depreciation-report',
+        canActivate: [permissionGuard('assets.view')],
+        loadComponent: () =>
+          import('./features/assets/depreciation-report/depreciation-report.component').then(
+            (m) => m.DepreciationReportComponent
+          ),
+      },
+      {
+        path: 'settings/vendors',
+        canActivate: [permissionGuard('assets.manage_vendors')],
+        loadComponent: () => import('./features/settings/vendors/vendors.component').then((m) => m.VendorsComponent),
+      },
+      {
         path: 'assets/:id',
         canActivate: [permissionGuard('assets.view')],
         loadComponent: () => import('./features/assets/asset-detail/asset-detail.component').then((m) => m.AssetDetailComponent),

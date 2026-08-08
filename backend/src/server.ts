@@ -9,6 +9,7 @@ import { SyslogReceiver } from './modules/logs/syslogReceiver';
 import { RetentionSweeper } from './modules/logs/retentionService';
 import { AlertEvaluator } from './modules/logs/alertService';
 import { RecurringTicketScheduler } from './modules/tickets/recurringTicketService';
+import { AssetComplianceEvaluator } from './modules/assets/complianceAlertService';
 
 async function main(): Promise<void> {
   await connectDatabase();
@@ -34,12 +35,16 @@ async function main(): Promise<void> {
   const recurringTicketScheduler = new RecurringTicketScheduler();
   recurringTicketScheduler.start();
 
+  const assetComplianceEvaluator = new AssetComplianceEvaluator();
+  assetComplianceEvaluator.start();
+
   process.on('SIGTERM', async () => {
     imapWatcher.stop();
     syslogReceiver.stop();
     retentionSweeper.stop();
     alertEvaluator.stop();
     recurringTicketScheduler.stop();
+    assetComplianceEvaluator.stop();
     await sequelize.close();
     process.exit(0);
   });

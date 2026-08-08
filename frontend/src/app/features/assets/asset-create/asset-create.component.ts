@@ -1,7 +1,7 @@
 import { Component, OnInit, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
-import { ASSET_TYPES, AssetCustomFieldDefinition, AssetType } from '../../../core/models/asset.model';
+import { ASSET_TYPES, AssetCustomFieldDefinition, AssetType, DepreciationMethod, Vendor } from '../../../core/models/asset.model';
 import { extractApiError } from '../../../core/utils/api-error';
 import { AssetService } from '../services/asset.service';
 
@@ -26,6 +26,10 @@ import { AssetService } from '../services/asset.service';
             }
           </select>
         </div>
+        <label class="flex items-center gap-2 text-sm">
+          <input type="checkbox" [(ngModel)]="onOrder" name="onOrder" />
+          This has been ordered but not received yet
+        </label>
         <div class="grid grid-cols-2 gap-4">
           <div>
             <label class="block text-sm font-medium text-gray-700">Serial Number</label>
@@ -33,7 +37,12 @@ import { AssetService } from '../services/asset.service';
           </div>
           <div>
             <label class="block text-sm font-medium text-gray-700">Vendor</label>
-            <input type="text" name="vendor" [(ngModel)]="vendor" class="mt-1 w-full border rounded px-3 py-2" />
+            <select name="vendorId" [(ngModel)]="vendorId" class="mt-1 w-full border rounded px-3 py-2">
+              <option [ngValue]="null">None</option>
+              @for (v of vendors(); track v.id) {
+                <option [ngValue]="v.id">{{ v.name }}</option>
+              }
+            </select>
           </div>
           <div>
             <label class="block text-sm font-medium text-gray-700">Purchase Date</label>
@@ -43,18 +52,40 @@ import { AssetService } from '../services/asset.service';
             <label class="block text-sm font-medium text-gray-700">Warranty Expiry</label>
             <input type="date" name="warrantyExpiry" [(ngModel)]="warrantyExpiry" class="mt-1 w-full border rounded px-3 py-2" />
           </div>
-        </div>
-        @if (type === 'software_license') {
           <div>
-            <label class="block text-sm font-medium text-gray-700">License Seats Purchased</label>
-            <input type="number" min="0" name="seats" [(ngModel)]="licenseSeatsPurchased" class="mt-1 w-full border rounded px-3 py-2" />
+            <label class="block text-sm font-medium text-gray-700">Purchase Cost</label>
+            <input type="number" min="0" step="0.01" name="purchaseCost" [(ngModel)]="purchaseCost" class="mt-1 w-full border rounded px-3 py-2" />
           </div>
-        }
+          @if (type === 'software_license') {
+            <div>
+              <label class="block text-sm font-medium text-gray-700">License Seats Purchased</label>
+              <input type="number" min="0" name="seats" [(ngModel)]="licenseSeatsPurchased" class="mt-1 w-full border rounded px-3 py-2" />
+            </div>
+          }
+        </div>
 
-        @if (customFieldDefs().length > 0) {
+        <div class="border-t pt-4">
+          <label class="flex items-center gap-2 text-sm mb-2">
+            <input
+              type="checkbox"
+              [ngModel]="depreciationMethod === 'straight_line'"
+              (ngModelChange)="depreciationMethod = $event ? 'straight_line' : 'none'"
+              name="trackDepreciation"
+            />
+            Track straight-line depreciation
+          </label>
+          @if (depreciationMethod === 'straight_line') {
+            <div>
+              <label class="block text-sm font-medium text-gray-700">Useful Life (months)</label>
+              <input type="number" min="1" name="usefulLifeMonths" [(ngModel)]="usefulLifeMonths" class="mt-1 w-full border rounded px-3 py-2" />
+            </div>
+          }
+        </div>
+
+        @if (relevantCustomFieldDefs().length > 0) {
           <div class="border-t pt-4">
             <div class="text-sm font-medium text-gray-700 mb-2">Custom Fields</div>
-            @for (def of customFieldDefs(); track def.key) {
+            @for (def of relevantCustomFieldDefs(); track def.key) {
               <div class="mb-2">
                 <label class="block text-xs text-gray-600">{{ def.label }}</label>
                 <input
@@ -80,14 +111,19 @@ import { AssetService } from '../services/asset.service';
 export class AssetCreateComponent implements OnInit {
   name = '';
   type: AssetType = 'hardware';
+  onOrder = false;
   serialNumber = '';
-  vendor = '';
+  vendorId: string | null = null;
   purchaseDate = '';
   warrantyExpiry = '';
+  purchaseCost: number | null = null;
   licenseSeatsPurchased: number | null = null;
+  depreciationMethod: DepreciationMethod = 'none';
+  usefulLifeMonths: number | null = null;
   customFieldValues: Record<string, string> = {};
   readonly types = ASSET_TYPES;
   readonly customFieldDefs = signal<AssetCustomFieldDefinition[]>([]);
+  readonly vendors = signal<Vendor[]>([]);
   readonly error = signal<string | null>(null);
 
   constructor(
@@ -97,6 +133,11 @@ export class AssetCreateComponent implements OnInit {
 
   async ngOnInit(): Promise<void> {
     this.customFieldDefs.set(await this.assetService.listCustomFieldDefinitions());
+    this.vendors.set(await this.assetService.listVendors());
+  }
+
+  relevantCustomFieldDefs(): AssetCustomFieldDefinition[] {
+    return this.customFieldDefs().filter((d) => d.assetType === null || d.assetType === this.type);
   }
 
   async submit(): Promise<void> {
@@ -105,11 +146,15 @@ export class AssetCreateComponent implements OnInit {
       const asset = await this.assetService.create({
         name: this.name,
         type: this.type,
+        status: this.onOrder ? 'ordered' : undefined,
         serialNumber: this.serialNumber || null,
-        vendor: this.vendor || null,
+        vendorId: this.vendorId,
         purchaseDate: this.purchaseDate || null,
         warrantyExpiry: this.warrantyExpiry || null,
+        purchaseCost: this.purchaseCost,
         licenseSeatsPurchased: this.type === 'software_license' ? this.licenseSeatsPurchased : null,
+        depreciationMethod: this.depreciationMethod,
+        usefulLifeMonths: this.depreciationMethod === 'straight_line' ? this.usefulLifeMonths : null,
         customFields: this.customFieldValues,
       });
       this.router.navigate(['/assets', asset.id]);

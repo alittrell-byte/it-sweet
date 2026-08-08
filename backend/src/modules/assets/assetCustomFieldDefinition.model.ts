@@ -1,5 +1,6 @@
 import { DataTypes, Model, Optional } from 'sequelize';
 import { sequelize } from '../../db/sequelize';
+import { AssetType } from './asset.model';
 
 export type CustomFieldType = 'text' | 'number' | 'date' | 'boolean';
 
@@ -8,13 +9,15 @@ export interface AssetCustomFieldDefinitionAttributes {
   key: string;
   label: string;
   fieldType: CustomFieldType;
+  /** Null = applies to every asset type. Set = only shown/editable for that one type. */
+  assetType: AssetType | null;
   createdAt?: Date;
   updatedAt?: Date;
 }
 
 type AssetCustomFieldDefinitionCreationAttributes = Optional<
   AssetCustomFieldDefinitionAttributes,
-  'id' | 'createdAt' | 'updatedAt'
+  'id' | 'assetType' | 'createdAt' | 'updatedAt'
 >;
 
 export class AssetCustomFieldDefinition
@@ -25,6 +28,7 @@ export class AssetCustomFieldDefinition
   declare key: string;
   declare label: string;
   declare fieldType: CustomFieldType;
+  declare assetType: AssetType | null;
   declare readonly createdAt: Date;
   declare readonly updatedAt: Date;
 }
@@ -43,6 +47,10 @@ AssetCustomFieldDefinition.init(
       type: DataTypes.ENUM('text', 'number', 'date', 'boolean'),
       allowNull: false,
       defaultValue: 'text',
+    },
+    assetType: {
+      type: DataTypes.ENUM('hardware', 'software_license', 'peripheral'),
+      allowNull: true,
     },
   },
   {
