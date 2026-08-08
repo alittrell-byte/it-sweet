@@ -52,6 +52,33 @@ export const routes: Routes = [
           ),
       },
       {
+        path: 'settings/ticket-templates',
+        canActivate: [permissionGuard('tickets.manage_templates')],
+        loadComponent: () =>
+          import('./features/settings/ticket-templates/ticket-templates.component').then(
+            (m) => m.TicketTemplatesComponent
+          ),
+      },
+      {
+        path: 'settings/teams',
+        canActivate: [permissionGuard('tickets.manage_teams')],
+        loadComponent: () => import('./features/settings/teams/teams.component').then((m) => m.TeamsComponent),
+      },
+      {
+        path: 'settings/recurring-tickets',
+        canActivate: [permissionGuard('tickets.manage_recurring')],
+        loadComponent: () =>
+          import('./features/settings/recurring-tickets/recurring-tickets.component').then(
+            (m) => m.RecurringTicketsComponent
+          ),
+      },
+      {
+        path: 'settings/kb-templates',
+        canActivate: [permissionGuard('kb.manage_templates')],
+        loadComponent: () =>
+          import('./features/settings/kb-templates/kb-templates.component').then((m) => m.KbTemplatesComponent),
+      },
+      {
         path: 'settings/notification-groups',
         canActivate: [permissionGuard('notifications.manage_groups')],
         loadComponent: () =>
@@ -133,6 +160,42 @@ export const routes: Routes = [
         canActivate: [permissionGuard('logs.manage_alerts')],
         loadComponent: () =>
           import('./features/logs/alert-rules/alert-rules.component').then((m) => m.AlertRulesComponent),
+      },
+      {
+        // Visible to everyone, including customers - the external space is meant to be
+        // browsable by anyone; the backend enforces internal-space/manage-action permissions.
+        path: 'kb/new',
+        canActivate: [permissionGuard('kb.manage_internal', 'kb.manage_external')],
+        loadComponent: () =>
+          import('./features/knowledge-base/kb-article-edit/kb-article-edit.component').then(
+            (m) => m.KbArticleEditComponent
+          ),
+      },
+      {
+        path: 'kb/categories',
+        canActivate: [permissionGuard('kb.manage_categories')],
+        loadComponent: () =>
+          import('./features/knowledge-base/kb-categories/kb-categories.component').then((m) => m.KbCategoriesComponent),
+      },
+      {
+        path: 'kb/:id/edit',
+        canActivate: [permissionGuard('kb.manage_internal', 'kb.manage_external')],
+        loadComponent: () =>
+          import('./features/knowledge-base/kb-article-edit/kb-article-edit.component').then(
+            (m) => m.KbArticleEditComponent
+          ),
+      },
+      {
+        path: 'kb/:id',
+        loadComponent: () =>
+          import('./features/knowledge-base/kb-article-view/kb-article-view.component').then(
+            (m) => m.KbArticleViewComponent
+          ),
+      },
+      {
+        path: 'kb',
+        loadComponent: () =>
+          import('./features/knowledge-base/kb-browse/kb-browse.component').then((m) => m.KbBrowseComponent),
       },
     ],
   },

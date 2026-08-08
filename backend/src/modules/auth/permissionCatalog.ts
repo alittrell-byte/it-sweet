@@ -32,6 +32,10 @@ export const PERMISSION_CATALOG: PermissionModule[] = [
     permissions: [
       { key: 'tickets.view_dashboard', label: 'View the ticket dashboard' },
       { key: 'tickets.manage_canned_responses', label: 'Manage canned responses' },
+      { key: 'tickets.approve', label: 'Approve or reject tickets pending approval' },
+      { key: 'tickets.manage_templates', label: 'Manage ticket templates' },
+      { key: 'tickets.manage_teams', label: 'Manage teams/queues and their membership' },
+      { key: 'tickets.manage_recurring', label: 'Manage recurring ticket templates' },
     ],
   },
   {
@@ -42,7 +46,15 @@ export const PERMISSION_CATALOG: PermissionModule[] = [
   {
     module: 'knowledge_base',
     label: 'Knowledge Base',
-    permissions: [{ key: 'kb.manage', label: 'Create and edit KB articles' }],
+    permissions: [
+      { key: 'kb.view_internal', label: 'View internal (staff-only) articles' },
+      { key: 'kb.manage_internal', label: 'Create/edit/delete internal articles' },
+      { key: 'kb.manage_external', label: 'Create/edit/delete external (customer-facing) articles' },
+      { key: 'kb.manage_categories', label: 'Manage KB categories' },
+      { key: 'kb.manage_templates', label: 'Manage KB article templates' },
+      { key: 'kb.review_internal', label: 'Approve or request changes on internal articles pending review' },
+      { key: 'kb.review_external', label: 'Approve or request changes on external articles pending review' },
+    ],
   },
   {
     module: 'assets',

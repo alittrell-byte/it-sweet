@@ -63,6 +63,7 @@ const envSchema = z.object({
   LOG_SYSLOG_UDP_PORT: z.coerce.number().default(5514),
   LOG_RETENTION_SWEEP_INTERVAL_MS: z.coerce.number().default(3600000),
   ALERT_EVALUATION_INTERVAL_MS: z.coerce.number().default(30000),
+  RECURRING_TICKET_SWEEP_INTERVAL_MS: z.coerce.number().default(300000),
 });
 
 export type Env = z.infer<typeof envSchema>;

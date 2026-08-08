@@ -3,6 +3,7 @@ import * as templates from '../../common/email/templates';
 import { NotificationGroup } from '../notifications/notificationGroup.model';
 import { User } from '../auth/user.model';
 import { Ticket, TicketStatus } from './ticket.model';
+import { Team } from './team.model';
 
 async function loadTicketWithPeople(ticket: Ticket): Promise<Ticket> {
   return (await Ticket.findByPk(ticket.id, {
@@ -51,6 +52,16 @@ export async function notifyStatusChanged(ticket: Ticket, fromStatus: TicketStat
   const recipients = uniqueEmails([requester, assignee, ...watchers]);
   if (recipients.length === 0) return;
   const { subject, html } = templates.ticketStatusChangedEmail(full, fromStatus, toStatus);
+  await emailService.send({ to: recipients, subject, html });
+}
+
+export async function notifyTicketEscalated(ticket: Ticket, _fromTeamId: string | null, toTeamId: string): Promise<void> {
+  const team = await Team.findByPk(toTeamId, { include: [{ model: User, as: 'members' }] });
+  if (!team) return;
+  const members = (team as unknown as { members: User[] }).members ?? [];
+  const recipients = uniqueEmails(members);
+  if (recipients.length === 0) return;
+  const { subject, html } = templates.ticketEscalatedEmail(ticket, team.name);
   await emailService.send({ to: recipients, subject, html });
 }
 

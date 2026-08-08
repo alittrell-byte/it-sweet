@@ -1,7 +1,7 @@
-import { Component, signal } from '@angular/core';
+import { Component, OnInit, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
-import { TICKET_PRIORITIES, TicketPriority } from '../../../core/models/ticket.model';
+import { Team, TICKET_PRIORITIES, TicketPriority, TicketTemplate } from '../../../core/models/ticket.model';
 import { KbArticle, TicketService } from '../services/ticket.service';
 
 @Component({
@@ -13,6 +13,22 @@ import { KbArticle, TicketService } from '../services/ticket.service';
       <div class="col-span-2 bg-white p-6 rounded-lg shadow">
         <h1 class="text-xl font-semibold mb-4">New Ticket</h1>
         <form (ngSubmit)="submit()" class="space-y-4">
+          @if (templates().length > 0) {
+            <div>
+              <label class="block text-sm font-medium text-gray-700">Start from a template (optional)</label>
+              <select
+                [ngModel]="selectedTemplateId"
+                (ngModelChange)="applyTemplate($event)"
+                name="template"
+                class="mt-1 w-full border rounded px-3 py-2"
+              >
+                <option value="">Blank ticket</option>
+                @for (t of templates(); track t.id) {
+                  <option [value]="t.id">{{ t.name }}</option>
+                }
+              </select>
+            </div>
+          }
           <div>
             <label class="block text-sm font-medium text-gray-700">Subject</label>
             <input
@@ -35,18 +51,35 @@ import { KbArticle, TicketService } from '../services/ticket.service';
               class="mt-1 w-full border rounded px-3 py-2"
             ></textarea>
           </div>
-          <div>
-            <label class="block text-sm font-medium text-gray-700">Priority</label>
-            <select name="priority" [(ngModel)]="priority" class="mt-1 w-full border rounded px-3 py-2">
-              @for (p of priorities; track p) {
-                <option [value]="p">{{ p }}</option>
-              }
-            </select>
+          <div class="grid grid-cols-2 gap-4">
+            <div>
+              <label class="block text-sm font-medium text-gray-700">Priority</label>
+              <select name="priority" [(ngModel)]="priority" class="mt-1 w-full border rounded px-3 py-2">
+                @for (p of priorities; track p) {
+                  <option [value]="p">{{ p }}</option>
+                }
+              </select>
+            </div>
+            @if (teams().length > 0) {
+              <div>
+                <label class="block text-sm font-medium text-gray-700">Team / Queue (optional)</label>
+                <select name="team" [(ngModel)]="teamId" class="mt-1 w-full border rounded px-3 py-2">
+                  <option value="">Unassigned</option>
+                  @for (t of teams(); track t.id) {
+                    <option [value]="t.id">{{ t.name }}</option>
+                  }
+                </select>
+              </div>
+            }
           </div>
           <div>
             <label class="block text-sm font-medium text-gray-700">Attachment (optional)</label>
             <input type="file" (change)="onFileSelected($event)" class="mt-1 w-full" />
           </div>
+          <label class="flex items-center gap-2 text-sm">
+            <input type="checkbox" name="requiresApproval" [(ngModel)]="requiresApproval" />
+            This request requires manager approval before work begins
+          </label>
           @if (error()) {
             <p class="text-sm text-red-600">{{ error() }}</p>
           }
@@ -70,20 +103,46 @@ import { KbArticle, TicketService } from '../services/ticket.service';
     </div>
   `,
 })
-export class TicketCreateComponent {
+export class TicketCreateComponent implements OnInit {
   subject = '';
   description = '';
   priority: TicketPriority = 'medium';
   priorities = TICKET_PRIORITIES;
+  teamId = '';
+  selectedTemplateId = '';
+  requiresApproval = false;
   selectedFile: File | null = null;
   readonly error = signal<string | null>(null);
   readonly suggestions = signal<KbArticle[]>([]);
+  readonly templates = signal<TicketTemplate[]>([]);
+  readonly teams = signal<Team[]>([]);
   private queryTimeout: ReturnType<typeof setTimeout> | undefined;
+  private appliedCategory: string | undefined;
 
   constructor(
     private readonly ticketService: TicketService,
     private readonly router: Router
   ) {}
+
+  async ngOnInit(): Promise<void> {
+    const [templates, teams] = await Promise.all([this.ticketService.listTicketTemplates(), this.ticketService.listTeams()]);
+    this.templates.set(templates);
+    this.teams.set(teams);
+  }
+
+  applyTemplate(templateId: string): void {
+    this.selectedTemplateId = templateId;
+    const template = this.templates().find((t) => t.id === templateId);
+    if (!template) {
+      this.appliedCategory = undefined;
+      return;
+    }
+    this.subject = template.subjectTemplate;
+    this.description = template.descriptionTemplate;
+    this.priority = template.priority;
+    this.appliedCategory = template.category ?? undefined;
+    this.onQueryChange();
+  }
 
   onQueryChange(): void {
     clearTimeout(this.queryTimeout);
@@ -104,6 +163,10 @@ export class TicketCreateComponent {
         subject: this.subject,
         description: this.description,
         priority: this.priority,
+        category: this.appliedCategory,
+        teamId: this.teamId || undefined,
+        sourceTemplateId: this.selectedTemplateId || undefined,
+        requiresApproval: this.requiresApproval,
       });
       if (this.selectedFile) {
         await this.ticketService.uploadAttachment(ticket.id, this.selectedFile);

@@ -4,8 +4,10 @@ An open-source IT help desk, asset tracking, and ITSM platform. Node/Express + S
 Angular + Tailwind frontend, Postgres or MySQL, dockerized with independent volumes for the
 database and for uploaded files.
 
-This repo is being built module by module. **Module 1 (Help Desk / Ticketing)** is implemented now,
-on top of the shared foundation (auth, storage, email) that every later module reuses.
+This repo is being built module by module. **Modules 1-3 (Help Desk/Ticketing, Asset Management,
+Log Aggregation & Monitoring)** are implemented now, on top of a shared foundation (auth, storage,
+email, granular permissions) that every later module reuses. See the [Roadmap](#roadmap) below for
+what's next, and [`docs/`](docs/) for module-specific guides.
 
 ## Stack
 
@@ -117,11 +119,24 @@ npm run --workspace frontend test   # Angular/Karma unit tests
 backend/    Node/Express/TypeScript API (see backend/src/modules for each feature module)
 frontend/   Angular + Tailwind SPA
 docker/     Dockerfiles and compose files (Postgres by default, docker-compose.mysql.yml to swap)
+docs/       Module-specific how-to guides
 ```
+
+## Guides
+
+- [Connecting servers to log monitoring](docs/connecting-servers-to-logs.md) - HTTP ingestion API, syslog UDP, retention, alerting
 
 ## Roadmap
 
-Module 1 (Help Desk / Ticketing) is done. Modules 2-10 (Asset Management, Log Aggregation, Patch
-Management, Knowledge Base, Onboarding/Offboarding, Vendor & Contract Management, Change
-Management, ISP/Connectivity Tracking, Reporting) build on this same foundation and land
-incrementally.
+1. ✅ Help Desk / Ticketing
+2. ✅ Asset Management & Tracking
+3. ✅ Log Aggregation & Monitoring
+4. IT Documentation / Knowledge Base
+5. Update / Patch Tracking & Management
+6. Onboarding / Offboarding Workflows
+7. Vendor & Contract Management
+8. Change Management (Lightweight)
+9. ISP / Connectivity Issue Tracker
+10. Reporting & Insights Hub
+
+Each module builds on the same shared foundation and lands incrementally.

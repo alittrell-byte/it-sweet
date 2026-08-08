@@ -38,6 +38,16 @@ export function ticketStatusChangedEmail(
   };
 }
 
+export function ticketEscalatedEmail(ticket: Ticket, teamName: string): { subject: string; html: string } {
+  return {
+    subject: `[Ticket #${ticket.id}] Escalated to ${teamName}`,
+    html: wrap(
+      `Ticket #${ticket.id} escalated`,
+      `<p><strong>${ticket.subject}</strong> has been escalated to your team, <strong>${teamName}</strong>.</p>`
+    ),
+  };
+}
+
 export function ticketCommentEmail(ticket: Ticket, isInternal: boolean): { subject: string; html: string } {
   return {
     subject: `[Ticket #${ticket.id}] New ${isInternal ? 'internal note' : 'reply'}`,

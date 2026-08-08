@@ -34,11 +34,11 @@ TicketStatusHistory.init(
     },
     ticketId: { type: DataTypes.INTEGER, allowNull: false },
     fromStatus: {
-      type: DataTypes.ENUM('new', 'in_progress', 'waiting', 'resolved', 'closed'),
+      type: DataTypes.ENUM('new', 'in_progress', 'waiting', 'pending_approval', 'resolved', 'closed'),
       allowNull: true,
     },
     toStatus: {
-      type: DataTypes.ENUM('new', 'in_progress', 'waiting', 'resolved', 'closed'),
+      type: DataTypes.ENUM('new', 'in_progress', 'waiting', 'pending_approval', 'resolved', 'closed'),
       allowNull: false,
     },
     changedById: { type: DataTypes.UUID, allowNull: false },

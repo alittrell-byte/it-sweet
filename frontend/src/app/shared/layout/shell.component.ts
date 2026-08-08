@@ -102,9 +102,32 @@ export class ShellComponent {
           ...(this.auth.hasPermission('tickets.manage_canned_responses')
             ? [{ label: 'Canned Responses', path: '/settings/canned-responses' }]
             : []),
+          ...(this.auth.hasPermission('tickets.manage_templates')
+            ? [{ label: 'Ticket Templates', path: '/settings/ticket-templates' }]
+            : []),
+          ...(this.auth.hasPermission('tickets.manage_teams') ? [{ label: 'Teams / Queues', path: '/settings/teams' }] : []),
+          ...(this.auth.hasPermission('tickets.manage_recurring')
+            ? [{ label: 'Recurring Tickets', path: '/settings/recurring-tickets' }]
+            : []),
         ],
       },
     ];
+
+    // Visible to everyone, including customers - unlike every other module, the Knowledge
+    // Base's external space is meant to be browsable by any authenticated user. Management
+    // actions (new article, categories) are still permission-gated children.
+    modules.push({
+      key: 'kb',
+      label: 'Knowledge Base',
+      children: [
+        { label: 'Browse', path: '/kb' },
+        ...(this.auth.hasPermission('kb.manage_internal') || this.auth.hasPermission('kb.manage_external')
+          ? [{ label: '+ New Article', path: '/kb/new' }]
+          : []),
+        ...(this.auth.hasPermission('kb.manage_categories') ? [{ label: 'Categories', path: '/kb/categories' }] : []),
+        ...(this.auth.hasPermission('kb.manage_templates') ? [{ label: 'Article Templates', path: '/settings/kb-templates' }] : []),
+      ],
+    });
 
     if (this.auth.hasPermission('assets.view')) {
       modules.push({

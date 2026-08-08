@@ -8,6 +8,7 @@ import { handleInboundEmail } from './modules/tickets/inboundEmail';
 import { SyslogReceiver } from './modules/logs/syslogReceiver';
 import { RetentionSweeper } from './modules/logs/retentionService';
 import { AlertEvaluator } from './modules/logs/alertService';
+import { RecurringTicketScheduler } from './modules/tickets/recurringTicketService';
 
 async function main(): Promise<void> {
   await connectDatabase();
@@ -30,11 +31,15 @@ async function main(): Promise<void> {
   const alertEvaluator = new AlertEvaluator();
   alertEvaluator.start();
 
+  const recurringTicketScheduler = new RecurringTicketScheduler();
+  recurringTicketScheduler.start();
+
   process.on('SIGTERM', async () => {
     imapWatcher.stop();
     syslogReceiver.stop();
     retentionSweeper.stop();
     alertEvaluator.stop();
+    recurringTicketScheduler.stop();
     await sequelize.close();
     process.exit(0);
   });

@@ -18,6 +18,22 @@ import { LogEntry } from '../../modules/logs/logEntry.model';
 import { AlertRule } from '../../modules/logs/alertRule.model';
 import { AlertEvent } from '../../modules/logs/alertEvent.model';
 import { LogRetentionSetting } from '../../modules/logs/logRetentionSetting.model';
+import { KnowledgeBaseCategory } from '../../modules/knowledge-base/category.model';
+import { KnowledgeBaseArticleRevision } from '../../modules/knowledge-base/articleRevision.model';
+import { KnowledgeBaseArticleAttachment } from '../../modules/knowledge-base/articleAttachment.model';
+import { TicketKnowledgeBaseArticle } from '../../modules/knowledge-base/ticketKnowledgeBaseArticle.model';
+import { TicketTemplate } from '../../modules/tickets/ticketTemplate.model';
+import { TicketTimeEntry } from '../../modules/tickets/ticketTimeEntry.model';
+import { TicketSatisfactionSurvey } from '../../modules/tickets/ticketSatisfactionSurvey.model';
+import { Team } from '../../modules/tickets/team.model';
+import { TeamMembership } from '../../modules/tickets/teamMembership.model';
+import { TicketEscalationHistory } from '../../modules/tickets/ticketEscalationHistory.model';
+import { Tag } from '../../modules/tickets/tag.model';
+import { TicketTag } from '../../modules/tickets/ticketTag.model';
+import { TicketSavedView } from '../../modules/tickets/ticketSavedView.model';
+import { RecurringTicketTemplate } from '../../modules/tickets/recurringTicketTemplate.model';
+import { KbArticleTemplate } from '../../modules/knowledge-base/articleTemplate.model';
+import { KbArticleFeedback } from '../../modules/knowledge-base/articleFeedback.model';
 
 // Ticket <-> User
 Ticket.belongsTo(User, { as: 'requester', foreignKey: 'requesterId' });
@@ -61,7 +77,46 @@ User.belongsToMany(NotificationGroup, {
 });
 
 CannedResponse.belongsTo(User, { as: 'createdBy', foreignKey: 'createdById' });
+
+// Knowledge base
 KnowledgeBaseArticle.belongsTo(User, { as: 'createdBy', foreignKey: 'createdById' });
+KnowledgeBaseArticle.belongsTo(User, { as: 'updatedBy', foreignKey: 'updatedById' });
+KnowledgeBaseArticle.belongsTo(KnowledgeBaseCategory, { as: 'category', foreignKey: 'categoryId' });
+KnowledgeBaseCategory.belongsTo(KnowledgeBaseCategory, { as: 'parent', foreignKey: 'parentId' });
+KnowledgeBaseCategory.hasMany(KnowledgeBaseCategory, { as: 'children', foreignKey: 'parentId' });
+KnowledgeBaseArticle.hasMany(KnowledgeBaseArticleRevision, { as: 'revisions', foreignKey: 'articleId' });
+KnowledgeBaseArticleRevision.belongsTo(KnowledgeBaseArticle, { as: 'article', foreignKey: 'articleId' });
+KnowledgeBaseArticleRevision.belongsTo(User, { as: 'editedBy', foreignKey: 'editedById' });
+KnowledgeBaseArticle.hasMany(KnowledgeBaseArticleAttachment, { as: 'attachments', foreignKey: 'articleId' });
+KnowledgeBaseArticleAttachment.belongsTo(KnowledgeBaseArticle, { as: 'article', foreignKey: 'articleId' });
+KnowledgeBaseArticleAttachment.belongsTo(User, { as: 'uploadedBy', foreignKey: 'uploadedById' });
+
+// KB review workflow
+KnowledgeBaseArticle.belongsTo(User, { as: 'submittedForReviewBy', foreignKey: 'submittedForReviewById' });
+KnowledgeBaseArticle.belongsTo(User, { as: 'reviewedBy', foreignKey: 'reviewedById' });
+
+// KB article templates
+KbArticleTemplate.belongsTo(KnowledgeBaseCategory, { as: 'suggestedCategory', foreignKey: 'suggestedCategoryId' });
+KbArticleTemplate.belongsTo(User, { as: 'createdBy', foreignKey: 'createdById' });
+
+// KB article feedback
+KnowledgeBaseArticle.hasMany(KbArticleFeedback, { as: 'feedback', foreignKey: 'articleId' });
+KbArticleFeedback.belongsTo(KnowledgeBaseArticle, { as: 'article', foreignKey: 'articleId' });
+KbArticleFeedback.belongsTo(User, { as: 'user', foreignKey: 'userId' });
+
+// Ticket <-> KB Articles (many-to-many via TicketKnowledgeBaseArticle)
+Ticket.belongsToMany(KnowledgeBaseArticle, {
+  as: 'linkedArticles',
+  through: TicketKnowledgeBaseArticle,
+  foreignKey: 'ticketId',
+  otherKey: 'articleId',
+});
+KnowledgeBaseArticle.belongsToMany(Ticket, {
+  as: 'linkedTickets',
+  through: TicketKnowledgeBaseArticle,
+  foreignKey: 'articleId',
+  otherKey: 'ticketId',
+});
 
 // User <-> Permissions
 User.hasMany(UserPermission, { as: 'permissionGrants', foreignKey: 'userId' });
@@ -76,6 +131,47 @@ AssetAssignment.belongsTo(User, { as: 'assignedBy', foreignKey: 'assignedById' }
 // Ticket <-> Assets (many-to-many via TicketAsset)
 Ticket.belongsToMany(Asset, { as: 'linkedAssets', through: TicketAsset, foreignKey: 'ticketId', otherKey: 'assetId' });
 Asset.belongsToMany(Ticket, { as: 'linkedTickets', through: TicketAsset, foreignKey: 'assetId', otherKey: 'ticketId' });
+
+// Ticket templates
+Ticket.belongsTo(TicketTemplate, { as: 'sourceTemplate', foreignKey: 'sourceTemplateId' });
+TicketTemplate.belongsTo(User, { as: 'createdBy', foreignKey: 'createdById' });
+
+// Approval workflow
+Ticket.belongsTo(User, { as: 'approvedBy', foreignKey: 'approvedById' });
+Ticket.belongsTo(User, { as: 'rejectedBy', foreignKey: 'rejectedById' });
+
+// Teams/queues
+Ticket.belongsTo(Team, { as: 'team', foreignKey: 'teamId' });
+Team.belongsTo(Team, { as: 'escalatesTo', foreignKey: 'escalatesToTeamId' });
+Team.belongsToMany(User, { as: 'members', through: TeamMembership, foreignKey: 'teamId', otherKey: 'userId' });
+User.belongsToMany(Team, { as: 'teams', through: TeamMembership, foreignKey: 'userId', otherKey: 'teamId' });
+
+// Escalation history
+Ticket.hasMany(TicketEscalationHistory, { as: 'escalationHistory', foreignKey: 'ticketId' });
+TicketEscalationHistory.belongsTo(Ticket, { as: 'ticket', foreignKey: 'ticketId' });
+TicketEscalationHistory.belongsTo(Team, { as: 'fromTeam', foreignKey: 'fromTeamId' });
+TicketEscalationHistory.belongsTo(Team, { as: 'toTeam', foreignKey: 'toTeamId' });
+TicketEscalationHistory.belongsTo(User, { as: 'escalatedBy', foreignKey: 'escalatedById' });
+
+// Time tracking
+Ticket.hasMany(TicketTimeEntry, { as: 'timeEntries', foreignKey: 'ticketId' });
+TicketTimeEntry.belongsTo(Ticket, { as: 'ticket', foreignKey: 'ticketId' });
+TicketTimeEntry.belongsTo(User, { as: 'technician', foreignKey: 'technicianId' });
+
+// CSAT
+Ticket.hasOne(TicketSatisfactionSurvey, { as: 'survey', foreignKey: 'ticketId' });
+TicketSatisfactionSurvey.belongsTo(Ticket, { as: 'ticket', foreignKey: 'ticketId' });
+
+// Tags (many-to-many via TicketTag)
+Ticket.belongsToMany(Tag, { as: 'tags', through: TicketTag, foreignKey: 'ticketId', otherKey: 'tagId' });
+Tag.belongsToMany(Ticket, { as: 'tickets', through: TicketTag, foreignKey: 'tagId', otherKey: 'ticketId' });
+
+// Saved views
+TicketSavedView.belongsTo(User, { as: 'user', foreignKey: 'userId' });
+
+// Recurring ticket templates
+RecurringTicketTemplate.belongsTo(User, { as: 'createdBy', foreignKey: 'createdById' });
+RecurringTicketTemplate.belongsTo(User, { as: 'assignee', foreignKey: 'assigneeId' });
 
 // Logs
 LogSource.hasMany(LogEntry, { as: 'entries', foreignKey: 'sourceId' });
@@ -108,4 +204,20 @@ export {
   AlertRule,
   AlertEvent,
   LogRetentionSetting,
+  KnowledgeBaseCategory,
+  KnowledgeBaseArticleRevision,
+  KnowledgeBaseArticleAttachment,
+  TicketKnowledgeBaseArticle,
+  TicketTemplate,
+  TicketTimeEntry,
+  TicketSatisfactionSurvey,
+  Team,
+  TeamMembership,
+  TicketEscalationHistory,
+  Tag,
+  TicketTag,
+  TicketSavedView,
+  RecurringTicketTemplate,
+  KbArticleTemplate,
+  KbArticleFeedback,
 };
