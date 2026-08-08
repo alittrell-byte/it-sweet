@@ -14,6 +14,21 @@
     owner: "{{ ansible_user }}"
     mode: "0755"
 
+# rsync (the CLI tool, not the Ansible module) is required on BOTH ends of a synchronize task -
+# it's a plain package on the control node, so it's not something this role can install there,
+# but it's a normal target-side prerequisite this role can and should handle itself.
+- name: Install rsync (Debian/Ubuntu)
+  ansible.builtin.apt:
+    name: rsync
+    state: present
+  when: ansible_os_family == 'Debian'
+
+- name: Install rsync (RHEL family)
+  ansible.builtin.dnf:
+    name: rsync
+    state: present
+  when: ansible_os_family == 'RedHat'
+
 - name: Sync the app source from the control node's local checkout
   ansible.posix.synchronize:
     src: "{{ helpdesk_repo_src }}/"

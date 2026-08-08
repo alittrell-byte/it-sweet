@@ -19,9 +19,16 @@ Windows, use WSL.
 
 ```bash
 pip install --user ansible
+sudo apt install -y rsync   # or: sudo dnf install -y rsync
 cd ansible
 ansible-galaxy collection install -r requirements.yml
 ```
+
+`rsync` matters here specifically because `ansible.posix.synchronize` (what pushes the app source
+to the target) runs the actual `rsync` process **on the control node** - not through the target's
+Python interpreter like most modules - so it has to be on the control node's own PATH, not just
+the target's. The `helpdesk_app` role installs it on the target automatically; it can't install it
+on the control node for you (chicken-and-egg - that's the machine running the playbook).
 
 ## Configure
 
