@@ -23,6 +23,10 @@ import { contractRouter } from './modules/assets/contractRoutes';
 import { logRouter } from './modules/logs/logRoutes';
 import { alertRuleRouter } from './modules/logs/alertRoutes';
 import { ingestRouter } from './modules/logs/ingestRoutes';
+import { savedSearchRouter } from './modules/logs/savedSearchRoutes';
+import { patchRouter } from './modules/patches/patchRoutes';
+import { patchIngestRouter } from './modules/patches/patchIngestRoutes';
+import { reportingRouter } from './modules/reporting/reportingRoutes';
 
 export function createApp(): Express {
   const app = express();
@@ -52,7 +56,11 @@ export function createApp(): Express {
   app.use('/api/contracts', contractRouter);
   app.use('/api/logs/alert-rules', alertRuleRouter);
   app.use('/api/logs/ingest', ingestRouter);
+  app.use('/api/logs/saved-searches', savedSearchRouter);
   app.use('/api/logs', logRouter);
+  app.use('/api/patches/ingest', patchIngestRouter);
+  app.use('/api/patches', patchRouter);
+  app.use('/api/reports', reportingRouter);
 
   app.use(notFoundHandler);
   app.use(errorHandler);

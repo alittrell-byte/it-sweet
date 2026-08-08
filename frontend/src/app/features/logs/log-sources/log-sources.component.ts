@@ -1,7 +1,10 @@
 import { Component, OnInit, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { Asset } from '../../../core/models/asset.model';
 import { LogSource, LogSourceType } from '../../../core/models/log.model';
+import { Team } from '../../../core/models/ticket.model';
 import { extractApiError } from '../../../core/utils/api-error';
+import { AssetService } from '../../assets/services/asset.service';
 import { LogService } from '../services/log.service';
 
 @Component({
@@ -19,6 +22,10 @@ import { LogService } from '../services/log.service';
             <label class="block text-xs text-gray-600">Days</label>
             <input type="number" min="1" [(ngModel)]="defaultRetentionDays" class="w-28 border rounded px-2 py-1.5 text-sm" />
           </div>
+          <label class="flex items-center gap-2 text-sm pb-1.5">
+            <input type="checkbox" [(ngModel)]="archiveBeforePurge" />
+            Archive to cold storage before purging
+          </label>
           <button (click)="saveRetention()" class="text-sm bg-slate-800 text-white rounded px-4 py-1.5 hover:bg-slate-700">
             Save
           </button>
@@ -75,6 +82,24 @@ import { LogService } from '../services/log.service';
                 class="w-20 border rounded px-2 py-1"
               />
             </div>
+            <div class="mt-2 flex items-center gap-2 text-xs">
+              <span class="text-gray-500">Restrict visibility to team:</span>
+              <select [ngModel]="s.restrictedToTeamId" (ngModelChange)="updateSourceField(s, 'restrictedToTeamId', $event)" class="border rounded px-2 py-1">
+                <option [ngValue]="null">Anyone with log access</option>
+                @for (t of teams(); track t.id) {
+                  <option [ngValue]="t.id">{{ t.name }}</option>
+                }
+              </select>
+            </div>
+            <div class="mt-2 flex items-center gap-2 text-xs">
+              <span class="text-gray-500">Correlated asset:</span>
+              <select [ngModel]="s.assetId" (ngModelChange)="updateSourceField(s, 'assetId', $event)" class="border rounded px-2 py-1">
+                <option [ngValue]="null">None</option>
+                @for (a of assets(); track a.id) {
+                  <option [ngValue]="a.id">{{ a.name }}</option>
+                }
+              </select>
+            </div>
           </div>
         } @empty {
           <p class="p-4 text-sm text-gray-400">No sources registered yet.</p>
@@ -85,26 +110,46 @@ import { LogService } from '../services/log.service';
 })
 export class LogSourcesComponent implements OnInit {
   readonly sources = signal<LogSource[]>([]);
+  readonly teams = signal<Team[]>([]);
+  readonly assets = signal<Asset[]>([]);
   readonly error = signal<string | null>(null);
   readonly purgeMessage = signal<string | null>(null);
   defaultRetentionDays = 30;
+  archiveBeforePurge = false;
   name = '';
   type: LogSourceType = 'http';
 
-  constructor(private readonly logService: LogService) {}
+  constructor(
+    private readonly logService: LogService,
+    private readonly assetService: AssetService
+  ) {}
 
   async ngOnInit(): Promise<void> {
-    await this.load();
+    await Promise.all([this.load(), this.loadTeams(), this.loadAssets()]);
     const settings = await this.logService.getRetentionSettings();
     this.defaultRetentionDays = settings.defaultRetentionDays;
+    this.archiveBeforePurge = settings.archiveBeforePurge;
   }
 
   async load(): Promise<void> {
     this.sources.set(await this.logService.listSources());
   }
 
+  async loadTeams(): Promise<void> {
+    this.teams.set(await this.logService.listTeams());
+  }
+
+  async loadAssets(): Promise<void> {
+    this.assets.set(await this.assetService.list());
+  }
+
   async saveRetention(): Promise<void> {
-    await this.logService.setRetentionSettings(this.defaultRetentionDays);
+    const settings = await this.logService.updateRetentionSettings({
+      defaultRetentionDays: this.defaultRetentionDays,
+      archiveBeforePurge: this.archiveBeforePurge,
+    });
+    this.defaultRetentionDays = settings.defaultRetentionDays;
+    this.archiveBeforePurge = settings.archiveBeforePurge;
   }
 
   async purgeNow(): Promise<void> {
@@ -132,6 +177,12 @@ export class LogSourcesComponent implements OnInit {
     const value = (event.target as HTMLInputElement).value;
     const retentionDays = value ? Number(value) : null;
     await this.logService.updateSource(source.id, { retentionDays });
+    await this.load();
+  }
+
+  async updateSourceField(source: LogSource, field: 'restrictedToTeamId' | 'assetId', value: string | null): Promise<void> {
+    const patch = field === 'restrictedToTeamId' ? { restrictedToTeamId: value || null } : { assetId: value || null };
+    await this.logService.updateSource(source.id, patch);
     await this.load();
   }
 

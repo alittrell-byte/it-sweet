@@ -1,6 +1,7 @@
 import { Op, col, fn, where as sequelizeWhere } from 'sequelize';
 import { LogEntry, LogSeverity } from './logEntry.model';
 import { LogSource } from './logSource.model';
+import { VisibleSources } from './logAccessControl';
 
 const ERROR_TIER: LogSeverity[] = ['emergency', 'alert', 'critical', 'error'];
 const ALL_SEVERITIES: LogSeverity[] = ['emergency', 'alert', 'critical', 'error', 'warning', 'notice', 'info', 'debug'];
@@ -11,13 +12,23 @@ export interface SearchFilter {
   query?: string;
   from?: Date;
   to?: Date;
+  metadataField?: string;
+  metadataValue?: string;
   limit?: number;
   offset?: number;
+  visibleSourceIds?: VisibleSources;
 }
 
 export interface SearchResult {
   rows: LogEntry[];
   total: number;
+}
+
+function applyVisibility(where: Record<string | symbol, unknown>, visibleSourceIds?: VisibleSources): void {
+  if (!visibleSourceIds || visibleSourceIds === 'all') return;
+  // sourceId is nullable (unregistered senders) - entries with no source are always visible,
+  // since there's nothing to restrict them to.
+  where[Op.or as unknown as string] = [{ sourceId: null }, { sourceId: { [Op.in]: visibleSourceIds } }];
 }
 
 export async function searchLogs(filter: SearchFilter): Promise<SearchResult> {
@@ -37,6 +48,12 @@ export async function searchLogs(filter: SearchFilter): Promise<SearchResult> {
       [Op.like]: `%${filter.query.trim().toLowerCase()}%`,
     });
   }
+  if (filter.metadataField && filter.metadataValue) {
+    // Sequelize's dot-path where syntax generates the correct JSON operator for both Postgres
+    // (->>) and MySQL (JSON_EXTRACT/->>) automatically - no raw dialect-specific SQL needed.
+    where[`metadata.${filter.metadataField}`] = filter.metadataValue;
+  }
+  applyVisibility(where, filter.visibleSourceIds);
 
   const { rows, count } = await LogEntry.findAndCountAll({
     where,
@@ -57,10 +74,12 @@ export interface DashboardSummary {
 // Bucketing is done in JS rather than a dialect-specific DATE_TRUNC/date_format SQL
 // function, to stay portable across Postgres and MySQL. Fine at the log volumes this
 // DB-backed module targets; a dedicated log store would be needed well beyond that.
-export async function getDashboardSummary(): Promise<DashboardSummary> {
+export async function getDashboardSummary(visibleSourceIds?: VisibleSources): Promise<DashboardSummary> {
   const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
+  const where: Record<string | symbol, unknown> = { receivedAt: { [Op.gte]: since } };
+  applyVisibility(where, visibleSourceIds);
   const entries = await LogEntry.findAll({
-    where: { receivedAt: { [Op.gte]: since } },
+    where,
     include: [{ model: LogSource, as: 'source', attributes: ['id', 'name'] }],
     attributes: ['id', 'severity', 'receivedAt', 'sourceId'],
   });

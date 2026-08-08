@@ -17,6 +17,7 @@ import { LogSource } from '../../modules/logs/logSource.model';
 import { LogEntry } from '../../modules/logs/logEntry.model';
 import { AlertRule } from '../../modules/logs/alertRule.model';
 import { AlertEvent } from '../../modules/logs/alertEvent.model';
+import { SavedSearch } from '../../modules/logs/savedSearch.model';
 import { LogRetentionSetting } from '../../modules/logs/logRetentionSetting.model';
 import { KnowledgeBaseCategory } from '../../modules/knowledge-base/category.model';
 import { KnowledgeBaseArticleRevision } from '../../modules/knowledge-base/articleRevision.model';
@@ -37,6 +38,11 @@ import { KbArticleFeedback } from '../../modules/knowledge-base/articleFeedback.
 import { Vendor } from '../../modules/assets/vendor.model';
 import { Contract } from '../../modules/assets/contract.model';
 import { AssetHistory } from '../../modules/assets/assetHistory.model';
+import { Patch } from '../../modules/patches/patch.model';
+import { AssetPatchStatus } from '../../modules/patches/assetPatchStatus.model';
+import { PatchAgentKey } from '../../modules/patches/patchAgentKey.model';
+import { MaintenanceWindow } from '../../modules/patches/maintenanceWindow.model';
+import { ScheduledReport } from '../../modules/reporting/scheduledReport.model';
 
 // Ticket <-> User
 Ticket.belongsTo(User, { as: 'requester', foreignKey: 'requesterId' });
@@ -196,6 +202,22 @@ AlertRule.belongsTo(User, { as: 'createdBy', foreignKey: 'createdById' });
 AlertRule.hasMany(AlertEvent, { as: 'events', foreignKey: 'ruleId' });
 AlertEvent.belongsTo(AlertRule, { as: 'rule', foreignKey: 'ruleId' });
 AlertEvent.belongsTo(Ticket, { as: 'resolvedTicket', foreignKey: 'resolvedTicketId' });
+AlertRule.belongsTo(NotificationGroup, { as: 'notifyGroup', foreignKey: 'notifyGroupId' });
+LogSource.belongsTo(Team, { as: 'restrictedToTeam', foreignKey: 'restrictedToTeamId' });
+LogSource.belongsTo(Asset, { as: 'asset', foreignKey: 'assetId' });
+SavedSearch.belongsTo(User, { as: 'user', foreignKey: 'userId' });
+ScheduledReport.belongsTo(NotificationGroup, { as: 'notifyGroup', foreignKey: 'notifyGroupId' });
+ScheduledReport.belongsTo(User, { as: 'createdBy', foreignKey: 'createdById' });
+
+// Patch management
+Asset.hasMany(AssetPatchStatus, { as: 'patchStatuses', foreignKey: 'assetId' });
+AssetPatchStatus.belongsTo(Asset, { as: 'asset', foreignKey: 'assetId' });
+Patch.hasMany(AssetPatchStatus, { as: 'assetStatuses', foreignKey: 'patchId' });
+AssetPatchStatus.belongsTo(Patch, { as: 'patch', foreignKey: 'patchId' });
+Patch.belongsTo(User, { as: 'approvedBy', foreignKey: 'approvedById' });
+Asset.hasOne(PatchAgentKey, { as: 'patchAgentKey', foreignKey: 'assetId' });
+PatchAgentKey.belongsTo(Asset, { as: 'asset', foreignKey: 'assetId' });
+MaintenanceWindow.belongsTo(Team, { as: 'team', foreignKey: 'teamId' });
 
 export {
   User,
@@ -218,6 +240,7 @@ export {
   AlertRule,
   AlertEvent,
   LogRetentionSetting,
+  SavedSearch,
   KnowledgeBaseCategory,
   KnowledgeBaseArticleRevision,
   KnowledgeBaseArticleAttachment,
@@ -237,4 +260,9 @@ export {
   Vendor,
   Contract,
   AssetHistory,
+  Patch,
+  AssetPatchStatus,
+  PatchAgentKey,
+  MaintenanceWindow,
+  ScheduledReport,
 };

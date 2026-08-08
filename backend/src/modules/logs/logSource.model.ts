@@ -10,11 +10,19 @@ export interface LogSourceAttributes {
   apiKey: string;
   /** Null falls back to the global LogRetentionSetting default. */
   retentionDays: number | null;
+  /** Null = visible to anyone with logs.view (today's default). Set = additionally requires
+   *  membership on this Team, or the logs.view_all_sources bypass permission. */
+  restrictedToTeamId: string | null;
+  /** Optional correlation to the asset this source is running on/monitoring. */
+  assetId: string | null;
   createdAt?: Date;
   updatedAt?: Date;
 }
 
-type LogSourceCreationAttributes = Optional<LogSourceAttributes, 'id' | 'retentionDays' | 'createdAt' | 'updatedAt'>;
+type LogSourceCreationAttributes = Optional<
+  LogSourceAttributes,
+  'id' | 'retentionDays' | 'restrictedToTeamId' | 'assetId' | 'createdAt' | 'updatedAt'
+>;
 
 export class LogSource extends Model<LogSourceAttributes, LogSourceCreationAttributes> implements LogSourceAttributes {
   declare id: string;
@@ -22,6 +30,8 @@ export class LogSource extends Model<LogSourceAttributes, LogSourceCreationAttri
   declare type: LogSourceType;
   declare apiKey: string;
   declare retentionDays: number | null;
+  declare restrictedToTeamId: string | null;
+  declare assetId: string | null;
   declare readonly createdAt: Date;
   declare readonly updatedAt: Date;
 }
@@ -41,6 +51,8 @@ LogSource.init(
     },
     apiKey: { type: DataTypes.STRING(64), allowNull: false, unique: true },
     retentionDays: { type: DataTypes.INTEGER, allowNull: true },
+    restrictedToTeamId: { type: DataTypes.UUID, allowNull: true },
+    assetId: { type: DataTypes.UUID, allowNull: true },
   },
   {
     sequelize,

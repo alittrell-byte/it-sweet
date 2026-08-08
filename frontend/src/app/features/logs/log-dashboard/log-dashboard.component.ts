@@ -1,5 +1,7 @@
+import { HttpClient } from '@angular/common/http';
 import { Component, OnInit, signal } from '@angular/core';
 import { LogDashboardSummary } from '../../../core/models/log.model';
+import { downloadFile } from '../../../core/utils/download';
 import { LogService } from '../services/log.service';
 
 @Component({
@@ -8,7 +10,10 @@ import { LogService } from '../services/log.service';
   template: `
     @if (summary(); as s) {
       <div class="max-w-5xl mx-auto space-y-6">
-        <h1 class="text-xl font-semibold">Log Dashboard</h1>
+        <div class="flex items-center justify-between">
+          <h1 class="text-xl font-semibold">Log Dashboard</h1>
+          <button (click)="downloadCsv()" class="text-sm text-blue-600 hover:underline">Download CSV</button>
+        </div>
 
         <div class="grid grid-cols-4 md:grid-cols-8 gap-3">
           @for (sev of severityKeys(s); track sev) {
@@ -51,10 +56,17 @@ import { LogService } from '../services/log.service';
 export class LogDashboardComponent implements OnInit {
   readonly summary = signal<LogDashboardSummary | null>(null);
 
-  constructor(private readonly logService: LogService) {}
+  constructor(
+    private readonly logService: LogService,
+    private readonly http: HttpClient
+  ) {}
 
   async ngOnInit(): Promise<void> {
     this.summary.set(await this.logService.dashboard());
+  }
+
+  downloadCsv(): Promise<void> {
+    return downloadFile(this.http, '/api/reports/logs/dashboard.csv', 'log-dashboard.csv');
   }
 
   severityKeys(s: LogDashboardSummary): Array<keyof LogDashboardSummary['severityBreakdown']> {

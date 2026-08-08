@@ -147,6 +147,41 @@ export const routes: Routes = [
           ),
       },
       {
+        path: 'reports/overview',
+        canActivate: [permissionGuard('reports.view')],
+        loadComponent: () =>
+          import('./features/reporting/overview-dashboard/overview-dashboard.component').then((m) => m.OverviewDashboardComponent),
+      },
+      {
+        path: 'reports/kb-feedback',
+        canActivate: [permissionGuard('reports.view')],
+        loadComponent: () =>
+          import('./features/reporting/kb-feedback-report/kb-feedback-report.component').then((m) => m.KbFeedbackReportComponent),
+      },
+      {
+        path: 'reports/scheduled-reports',
+        canActivate: [permissionGuard('reports.view')],
+        loadComponent: () =>
+          import('./features/reporting/scheduled-reports/scheduled-reports.component').then((m) => m.ScheduledReportsComponent),
+      },
+      {
+        path: 'patches/compliance-report',
+        canActivate: [permissionGuard('patches.view')],
+        loadComponent: () =>
+          import('./features/patches/compliance-report/compliance-report.component').then((m) => m.PatchComplianceReportComponent),
+      },
+      {
+        path: 'patches/catalog',
+        canActivate: [permissionGuard('patches.view')],
+        loadComponent: () => import('./features/patches/patch-catalog/patch-catalog.component').then((m) => m.PatchCatalogComponent),
+      },
+      {
+        path: 'patches/maintenance-windows',
+        canActivate: [permissionGuard('patches.view')],
+        loadComponent: () =>
+          import('./features/patches/maintenance-windows/maintenance-windows.component').then((m) => m.MaintenanceWindowsComponent),
+      },
+      {
         path: 'logs',
         canActivate: [permissionGuard('logs.view')],
         loadComponent: () => import('./features/logs/log-search/log-search.component').then((m) => m.LogSearchComponent),

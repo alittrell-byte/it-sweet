@@ -1,6 +1,8 @@
+import { HttpClient } from '@angular/common/http';
 import { Component, OnInit, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { DashboardSummary } from '../../core/models/ticket.model';
+import { downloadFile } from '../../core/utils/download';
 import { TicketService } from '../tickets/services/ticket.service';
 
 @Component({
@@ -10,6 +12,9 @@ import { TicketService } from '../tickets/services/ticket.service';
   template: `
     @if (summary(); as s) {
       <div class="max-w-5xl mx-auto space-y-6">
+        <div class="flex justify-end">
+          <button (click)="downloadCsv()" class="text-sm text-blue-600 hover:underline">Download CSV</button>
+        </div>
         <div class="grid grid-cols-2 md:grid-cols-5 gap-4">
           @for (status of statusKeys(s); track status) {
             <div class="bg-white p-4 rounded-lg shadow text-center">
@@ -56,10 +61,17 @@ import { TicketService } from '../tickets/services/ticket.service';
 export class DashboardComponent implements OnInit {
   readonly summary = signal<DashboardSummary | null>(null);
 
-  constructor(private readonly ticketService: TicketService) {}
+  constructor(
+    private readonly ticketService: TicketService,
+    private readonly http: HttpClient
+  ) {}
 
   async ngOnInit(): Promise<void> {
     this.summary.set(await this.ticketService.getDashboard());
+  }
+
+  downloadCsv(): Promise<void> {
+    return downloadFile(this.http, '/api/reports/tickets/aging.csv', 'ticket-dashboard.csv');
   }
 
   statusKeys(s: DashboardSummary): Array<keyof DashboardSummary['openByStatus']> {

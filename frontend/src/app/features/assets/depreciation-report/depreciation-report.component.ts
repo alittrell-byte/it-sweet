@@ -1,5 +1,7 @@
+import { HttpClient } from '@angular/common/http';
 import { Component, OnInit, signal } from '@angular/core';
 import { DepreciationRow } from '../../../core/models/asset.model';
+import { downloadFile } from '../../../core/utils/download';
 import { AssetService } from '../services/asset.service';
 
 @Component({
@@ -7,7 +9,10 @@ import { AssetService } from '../services/asset.service';
   standalone: true,
   template: `
     <div class="max-w-3xl mx-auto space-y-4">
-      <h1 class="text-xl font-semibold">Depreciation Report</h1>
+      <div class="flex items-center justify-between">
+        <h1 class="text-xl font-semibold">Depreciation Report</h1>
+        <button (click)="downloadCsv()" class="text-sm text-blue-600 hover:underline">Download CSV</button>
+      </div>
       <p class="text-sm text-gray-500">
         Straight-line depreciation, computed as of today. Configure purchase cost, method, and useful life on an
         asset's detail page.
@@ -48,9 +53,16 @@ import { AssetService } from '../services/asset.service';
 export class DepreciationReportComponent implements OnInit {
   readonly rows = signal<DepreciationRow[]>([]);
 
-  constructor(private readonly assetService: AssetService) {}
+  constructor(
+    private readonly assetService: AssetService,
+    private readonly http: HttpClient
+  ) {}
 
   async ngOnInit(): Promise<void> {
     this.rows.set(await this.assetService.depreciationReport());
+  }
+
+  downloadCsv(): Promise<void> {
+    return downloadFile(this.http, '/api/reports/assets/depreciation.csv', 'depreciation.csv');
   }
 }

@@ -17,6 +17,8 @@ const createSchema = z.object({
   thresholdCount: z.number().int().min(1).default(1),
   thresholdWindowMinutes: z.number().int().min(1).default(5),
   notifyEmails: z.array(z.string().email()).optional(),
+  notifyGroupId: z.string().uuid().nullable().optional(),
+  groupByMetadataField: z.string().min(1).max(100).nullable().optional(),
   webhookUrl: z.string().url().nullable().optional(),
   createTicket: z.boolean().default(false),
   isActive: z.boolean().default(true),

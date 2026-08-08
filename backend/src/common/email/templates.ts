@@ -1,4 +1,32 @@
 import { Ticket } from '../../modules/tickets/ticket.model';
+import { CsvColumn } from '../csv';
+
+function escapeHtml(value: unknown): string {
+  return String(value ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!);
+}
+
+// Reused for every scheduled-report email regardless of report type - each curated report is
+// either a flat array of flat objects, or (for the dashboard-shaped reports) a single summary
+// object the caller flattens to one row first. Same column spec shape as common/csv.ts's toCsv,
+// so a report's column list can be defined once and used for both CSV export and this.
+export function reportEmailTable<T extends Record<string, unknown>>(rows: T[], columns: CsvColumn<T>[]): string {
+  if (rows.length === 0) return '<p>No data for this report.</p>';
+  const headerRow = columns.map((col) => `<th style="text-align:left;padding:4px 8px;border-bottom:1px solid #ccc">${escapeHtml(col.header)}</th>`).join('');
+  const bodyRows = rows
+    .map(
+      (row) =>
+        `<tr>${columns.map((col) => `<td style="padding:4px 8px;border-bottom:1px solid #eee">${escapeHtml(row[col.key])}</td>`).join('')}</tr>`
+    )
+    .join('');
+  return `<table style="border-collapse:collapse;font-size:14px"><thead><tr>${headerRow}</tr></thead><tbody>${bodyRows}</tbody></table>`;
+}
+
+export function scheduledReportEmail(name: string, tableHtml: string): { subject: string; html: string } {
+  return {
+    subject: `[Report] ${name}`,
+    html: wrap(name, tableHtml),
+  };
+}
 
 function wrap(title: string, body: string): string {
   return `<div style="font-family:sans-serif;max-width:600px">
@@ -77,6 +105,17 @@ export function contractRenewalEmail(vendorName: string, contractType: string, e
       `Contract renewal coming up`,
       `<p>The <strong>${contractType}</strong> contract with <strong>${vendorName}</strong> expires on
        <strong>${endDate}</strong>.</p>`
+    ),
+  };
+}
+
+export function patchOverdueEmail(assetName: string, patchTitle: string, daysMissing: number): { subject: string; html: string } {
+  return {
+    subject: `[Patch Overdue] ${assetName} is missing a critical patch`,
+    html: wrap(
+      `${assetName} is overdue on a critical patch`,
+      `<p><strong>${assetName}</strong> has been missing <strong>${patchTitle}</strong> for
+       <strong>${daysMissing}</strong> day${daysMissing === 1 ? '' : 's'}, past the approved SLA.</p>`
     ),
   };
 }

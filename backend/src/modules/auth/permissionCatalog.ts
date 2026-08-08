@@ -75,9 +75,28 @@ export const PERMISSION_CATALOG: PermissionModule[] = [
     label: 'Log Monitoring',
     permissions: [
       { key: 'logs.view', label: 'Search, tail, and view the log dashboard' },
+      { key: 'logs.view_all_sources', label: 'View all log sources, bypassing team restrictions' },
       { key: 'logs.manage_sources', label: 'Register/edit log sources and API keys' },
       { key: 'logs.manage_alerts', label: 'Manage alert rules' },
       { key: 'logs.manage_retention', label: 'Edit retention settings and trigger purges' },
+    ],
+  },
+  {
+    module: 'patches',
+    label: 'Patch Management',
+    permissions: [
+      { key: 'patches.view', label: 'View the patch catalog, compliance report, and maintenance windows' },
+      { key: 'patches.manage_catalog', label: 'Approve or decline patches' },
+      { key: 'patches.manage_agents', label: 'Generate/rotate per-asset patch agent keys' },
+      { key: 'patches.manage_windows', label: 'Create/edit maintenance windows' },
+    ],
+  },
+  {
+    module: 'reports',
+    label: 'Reporting & Insights',
+    permissions: [
+      { key: 'reports.view', label: 'View the overview dashboard and knowledge base feedback report' },
+      { key: 'reports.manage_scheduled', label: 'Create/edit scheduled report emails' },
     ],
   },
 ];

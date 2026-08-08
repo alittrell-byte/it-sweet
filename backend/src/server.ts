@@ -10,6 +10,8 @@ import { RetentionSweeper } from './modules/logs/retentionService';
 import { AlertEvaluator } from './modules/logs/alertService';
 import { RecurringTicketScheduler } from './modules/tickets/recurringTicketService';
 import { AssetComplianceEvaluator } from './modules/assets/complianceAlertService';
+import { PatchComplianceEvaluator } from './modules/patches/patchComplianceService';
+import { ScheduledReportSweeper } from './modules/reporting/scheduledReportService';
 
 async function main(): Promise<void> {
   await connectDatabase();
@@ -38,6 +40,12 @@ async function main(): Promise<void> {
   const assetComplianceEvaluator = new AssetComplianceEvaluator();
   assetComplianceEvaluator.start();
 
+  const patchComplianceEvaluator = new PatchComplianceEvaluator();
+  patchComplianceEvaluator.start();
+
+  const scheduledReportSweeper = new ScheduledReportSweeper();
+  scheduledReportSweeper.start();
+
   process.on('SIGTERM', async () => {
     imapWatcher.stop();
     syslogReceiver.stop();
@@ -45,6 +53,8 @@ async function main(): Promise<void> {
     alertEvaluator.stop();
     recurringTicketScheduler.stop();
     assetComplianceEvaluator.stop();
+    patchComplianceEvaluator.stop();
+    scheduledReportSweeper.stop();
     await sequelize.close();
     process.exit(0);
   });

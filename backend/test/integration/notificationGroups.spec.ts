@@ -21,10 +21,16 @@ afterAll(async () => {
 });
 
 describe('Notification group membership', () => {
-  it('blocks a technician without notifications.manage_groups from managing groups', async () => {
+  it('lets any staff member read the group list (needed for pickers elsewhere) but blocks creating one without notifications.manage_groups', async () => {
     const staff = await createStaff('notif-no-perm@example.com');
-    const res = await request(app).get('/api/notification-groups').set('Authorization', `Bearer ${staff.token}`);
-    expect(res.status).toBe(403);
+    const readRes = await request(app).get('/api/notification-groups').set('Authorization', `Bearer ${staff.token}`);
+    expect(readRes.status).toBe(200);
+
+    const createRes = await request(app)
+      .post('/api/notification-groups')
+      .set('Authorization', `Bearer ${staff.token}`)
+      .send({ name: 'Should Be Blocked' });
+    expect(createRes.status).toBe(403);
   });
 
   it('lets a permitted staff member create a group and add/remove members', async () => {

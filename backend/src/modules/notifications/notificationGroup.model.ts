@@ -8,13 +8,20 @@ export interface NotificationGroupAttributes {
   notifyOnNewTicket: boolean;
   notifyOnLicenseOverage: boolean;
   notifyOnContractRenewal: boolean;
+  notifyOnPatchOverdue: boolean;
   createdAt?: Date;
   updatedAt?: Date;
 }
 
 type NotificationGroupCreationAttributes = Optional<
   NotificationGroupAttributes,
-  'id' | 'notifyOnNewTicket' | 'notifyOnLicenseOverage' | 'notifyOnContractRenewal' | 'createdAt' | 'updatedAt'
+  | 'id'
+  | 'notifyOnNewTicket'
+  | 'notifyOnLicenseOverage'
+  | 'notifyOnContractRenewal'
+  | 'notifyOnPatchOverdue'
+  | 'createdAt'
+  | 'updatedAt'
 >;
 
 export class NotificationGroup
@@ -26,6 +33,7 @@ export class NotificationGroup
   declare notifyOnNewTicket: boolean;
   declare notifyOnLicenseOverage: boolean;
   declare notifyOnContractRenewal: boolean;
+  declare notifyOnPatchOverdue: boolean;
   declare readonly createdAt: Date;
   declare readonly updatedAt: Date;
 }
@@ -41,6 +49,7 @@ NotificationGroup.init(
     notifyOnNewTicket: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: true },
     notifyOnLicenseOverage: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
     notifyOnContractRenewal: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
+    notifyOnPatchOverdue: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
   },
   {
     sequelize,

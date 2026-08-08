@@ -4,10 +4,11 @@ An open-source IT help desk, asset tracking, and ITSM platform. Node/Express + S
 Angular + Tailwind frontend, Postgres or MySQL, dockerized with independent volumes for the
 database and for uploaded files.
 
-This repo is being built module by module. **Modules 1-3 (Help Desk/Ticketing, Asset Management,
-Log Aggregation & Monitoring)** are implemented now, on top of a shared foundation (auth, storage,
-email, granular permissions) that every later module reuses. See the [Roadmap](#roadmap) below for
-what's next, and [`docs/`](docs/) for module-specific guides.
+This repo is being built module by module. **Help Desk/Ticketing, Asset Management, Log
+Aggregation & Monitoring, Knowledge Base, Patch Management, and Reporting & Insights Hub** are
+implemented now, on top of a shared foundation (auth, storage, email, granular permissions) that
+every later module reuses. See the [Roadmap](#roadmap) below for what's next, and
+[`docs/features/`](docs/features/) for what each module does and how to use it.
 
 ## Stack
 
@@ -124,19 +125,35 @@ docs/       Module-specific how-to guides
 
 ## Guides
 
+**What each module does and how to use it:**
+
+- [Ticketing](docs/features/ticketing.md)
+- [Asset Management](docs/features/asset-management.md)
+- [Log Monitoring](docs/features/log-monitoring.md)
+- [Knowledge Base](docs/features/knowledge-base.md)
+- [Patch Management](docs/features/patch-management.md)
+- [Reporting & Insights Hub](docs/features/reporting.md)
+
+**Integration/setup how-tos:**
+
+- [Installing on Linux](docs/installation-linux.md) - Docker install, configuration, TLS, backups, systemd, production hardening
 - [Connecting servers to log monitoring](docs/connecting-servers-to-logs.md) - HTTP ingestion API, syslog UDP, retention, alerting
+- [Connecting devices to patch management](docs/connecting-patch-agents.md) - agent key setup, scan reporting
 
 ## Roadmap
 
 1. ✅ Help Desk / Ticketing
 2. ✅ Asset Management & Tracking
 3. ✅ Log Aggregation & Monitoring
-4. IT Documentation / Knowledge Base
-5. Update / Patch Tracking & Management
+4. ✅ IT Documentation / Knowledge Base
+5. ✅ Update / Patch Tracking & Management
 6. Onboarding / Offboarding Workflows
-7. Vendor & Contract Management
+7. ~~Vendor & Contract Management~~ - folded into Asset Management (vendors, contracts, and
+   renewal reminders) rather than a standalone module
 8. Change Management (Lightweight)
 9. ISP / Connectivity Issue Tracker
-10. Reporting & Insights Hub
+10. ✅ Reporting & Insights Hub - pulled forward ahead of Onboarding/Offboarding, Change
+    Management, and ISP Tracking, since it ties every existing module together rather than adding
+    a new bucket of tickets
 
 Each module builds on the same shared foundation and lands incrementally.

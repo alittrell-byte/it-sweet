@@ -160,6 +160,30 @@ export class ShellComponent {
       });
     }
 
+    if (this.auth.hasPermission('patches.view')) {
+      modules.push({
+        key: 'patches',
+        label: 'Patch Management',
+        children: [
+          { label: 'Compliance Report', path: '/patches/compliance-report' },
+          { label: 'Catalog', path: '/patches/catalog' },
+          { label: 'Maintenance Windows', path: '/patches/maintenance-windows' },
+        ],
+      });
+    }
+
+    if (this.auth.hasPermission('reports.view')) {
+      modules.push({
+        key: 'reports',
+        label: 'Reporting',
+        children: [
+          { label: 'Overview', path: '/reports/overview' },
+          { label: 'KB Feedback', path: '/reports/kb-feedback' },
+          { label: 'Scheduled Reports', path: '/reports/scheduled-reports' },
+        ],
+      });
+    }
+
     if (this.auth.hasPermission('notifications.manage_groups')) {
       modules.push({
         key: 'notifications',

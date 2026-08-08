@@ -1,6 +1,7 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
+import { Team } from '../../../core/models/ticket.model';
 import {
   AlertEvent,
   AlertRule,
@@ -11,6 +12,10 @@ import {
   LogSource,
   LogSourceOption,
   LogSourceType,
+  NotificationGroupOption,
+  RetentionSettings,
+  SavedSearch,
+  SavedSearchFilters,
 } from '../../../core/models/log.model';
 
 export interface SearchFilter {
@@ -19,6 +24,8 @@ export interface SearchFilter {
   q?: string;
   from?: string;
   to?: string;
+  metadataField?: string;
+  metadataValue?: string;
   limit?: number;
   offset?: number;
 }
@@ -27,6 +34,8 @@ export interface CreateSourceInput {
   name: string;
   type: LogSourceType;
   retentionDays?: number | null;
+  restrictedToTeamId?: string | null;
+  assetId?: string | null;
 }
 
 export interface CreateAlertRuleInput {
@@ -37,6 +46,8 @@ export interface CreateAlertRuleInput {
   thresholdCount: number;
   thresholdWindowMinutes: number;
   notifyEmails?: string[];
+  notifyGroupId?: string | null;
+  groupByMetadataField?: string | null;
   webhookUrl?: string | null;
   createTicket: boolean;
   isActive?: boolean;
@@ -90,14 +101,12 @@ export class LogService {
     return firstValueFrom(this.http.delete<void>(`/api/logs/sources/${id}`));
   }
 
-  getRetentionSettings(): Promise<{ defaultRetentionDays: number }> {
-    return firstValueFrom(this.http.get<{ defaultRetentionDays: number }>('/api/logs/retention-settings'));
+  getRetentionSettings(): Promise<RetentionSettings> {
+    return firstValueFrom(this.http.get<RetentionSettings>('/api/logs/retention-settings'));
   }
 
-  setRetentionSettings(defaultRetentionDays: number): Promise<{ defaultRetentionDays: number }> {
-    return firstValueFrom(
-      this.http.patch<{ defaultRetentionDays: number }>('/api/logs/retention-settings', { defaultRetentionDays })
-    );
+  updateRetentionSettings(input: Partial<RetentionSettings>): Promise<RetentionSettings> {
+    return firstValueFrom(this.http.patch<RetentionSettings>('/api/logs/retention-settings', input));
   }
 
   purgeNow(): Promise<{ deleted: number }> {
@@ -122,6 +131,26 @@ export class LogService {
 
   listAlertEvents(ruleId: string): Promise<AlertEvent[]> {
     return firstValueFrom(this.http.get<AlertEvent[]>(`/api/logs/alert-rules/${ruleId}/events`));
+  }
+
+  listTeams(): Promise<Team[]> {
+    return firstValueFrom(this.http.get<Team[]>('/api/teams'));
+  }
+
+  listNotificationGroups(): Promise<NotificationGroupOption[]> {
+    return firstValueFrom(this.http.get<NotificationGroupOption[]>('/api/notification-groups'));
+  }
+
+  listSavedSearches(): Promise<SavedSearch[]> {
+    return firstValueFrom(this.http.get<SavedSearch[]>('/api/logs/saved-searches'));
+  }
+
+  createSavedSearch(name: string, filters: SavedSearchFilters): Promise<SavedSearch> {
+    return firstValueFrom(this.http.post<SavedSearch>('/api/logs/saved-searches', { name, filters }));
+  }
+
+  deleteSavedSearch(id: string): Promise<void> {
+    return firstValueFrom(this.http.delete<void>(`/api/logs/saved-searches/${id}`));
   }
 }
 

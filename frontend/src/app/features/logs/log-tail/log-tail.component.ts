@@ -1,5 +1,5 @@
 import { DatePipe } from '@angular/common';
-import { Component, OnDestroy, OnInit, signal } from '@angular/core';
+import { Component, computed, OnDestroy, OnInit, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { AuthService } from '../../../core/services/auth.service';
 import { LOG_SEVERITIES, LogEntry, LogSeverity, LogSourceOption } from '../../../core/models/log.model';
@@ -37,11 +37,24 @@ import { LogService } from '../services/log.service';
             }
           </select>
         </div>
+        <div class="flex-1">
+          <label class="block text-xs text-gray-600">Grep (regex, client-side)</label>
+          <input
+            [ngModel]="grepPattern()"
+            (ngModelChange)="grepPattern.set($event)"
+            placeholder="e.g. sourceIp=10\\.0\\."
+            class="w-full border rounded px-2 py-1.5 text-sm font-mono"
+            [class.border-red-400]="grepError()"
+          />
+        </div>
         <button (click)="entries.set([])" class="text-sm border rounded px-3 py-1.5 hover:bg-gray-50">Clear</button>
       </div>
+      @if (grepError()) {
+        <p class="text-xs text-red-600">Invalid regex - showing unfiltered entries.</p>
+      }
 
       <div class="bg-slate-900 text-slate-100 rounded-lg shadow p-3 font-mono text-xs h-[60vh] overflow-y-auto">
-        @for (entry of entries(); track entry.id) {
+        @for (entry of filteredEntries(); track entry.id) {
           <div class="py-0.5">
             <span class="text-slate-500">{{ entry.receivedAt | date: 'HH:mm:ss' }}</span>
             <span class="text-slate-400">[{{ entry.severity }}]</span>
@@ -59,8 +72,29 @@ export class LogTailComponent implements OnInit, OnDestroy {
   readonly sources = signal<LogSourceOption[]>([]);
   readonly connected = signal(false);
   readonly severities = LOG_SEVERITIES;
+  readonly grepPattern = signal('');
   sourceId = '';
   severity = '';
+
+  // Client-side only - no backend change needed. Invalid regex falls back to showing every
+  // entry unfiltered (with a visible error) rather than throwing and blanking the tail.
+  readonly grepError = computed(() => {
+    const pattern = this.grepPattern().trim();
+    if (!pattern) return false;
+    try {
+      new RegExp(pattern, 'i');
+      return false;
+    } catch {
+      return true;
+    }
+  });
+
+  readonly filteredEntries = computed(() => {
+    const pattern = this.grepPattern().trim();
+    if (!pattern || this.grepError()) return this.entries();
+    const regex = new RegExp(pattern, 'i');
+    return this.entries().filter((e) => regex.test(e.message));
+  });
 
   private eventSource: EventSource | null = null;
 

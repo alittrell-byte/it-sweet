@@ -1,5 +1,7 @@
+import { HttpClient } from '@angular/common/http';
 import { Component, OnInit, signal } from '@angular/core';
 import { LicenseComplianceRow } from '../../../core/models/asset.model';
+import { downloadFile } from '../../../core/utils/download';
 import { AssetService } from '../services/asset.service';
 
 @Component({
@@ -7,7 +9,10 @@ import { AssetService } from '../services/asset.service';
   standalone: true,
   template: `
     <div class="max-w-3xl mx-auto space-y-4">
-      <h1 class="text-xl font-semibold">License Compliance</h1>
+      <div class="flex items-center justify-between">
+        <h1 class="text-xl font-semibold">License Compliance</h1>
+        <button (click)="downloadCsv()" class="text-sm text-blue-600 hover:underline">Download CSV</button>
+      </div>
       <div class="bg-white rounded-lg shadow overflow-x-auto">
         <table class="w-full text-sm">
           <thead class="bg-gray-50 text-left text-xs uppercase text-gray-500">
@@ -50,9 +55,16 @@ import { AssetService } from '../services/asset.service';
 export class LicenseComplianceComponent implements OnInit {
   readonly rows = signal<LicenseComplianceRow[]>([]);
 
-  constructor(private readonly assetService: AssetService) {}
+  constructor(
+    private readonly assetService: AssetService,
+    private readonly http: HttpClient
+  ) {}
 
   async ngOnInit(): Promise<void> {
     this.rows.set(await this.assetService.licenseCompliance());
+  }
+
+  downloadCsv(): Promise<void> {
+    return downloadFile(this.http, '/api/reports/assets/license-compliance.csv', 'license-compliance.csv');
   }
 }

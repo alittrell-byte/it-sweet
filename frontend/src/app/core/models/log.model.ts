@@ -21,6 +21,8 @@ export interface LogSourceOption {
 export interface LogSource extends LogSourceOption {
   apiKey: string;
   retentionDays: number | null;
+  restrictedToTeamId: string | null;
+  assetId: string | null;
   createdAt: string;
 }
 
@@ -56,6 +58,8 @@ export interface AlertRule {
   thresholdCount: number;
   thresholdWindowMinutes: number;
   notifyEmails: string | null;
+  notifyGroupId: string | null;
+  groupByMetadataField: string | null;
   webhookUrl: string | null;
   createTicket: boolean;
   isActive: boolean;
@@ -68,4 +72,31 @@ export interface AlertEvent {
   matchCount: number;
   sampleMessage: string;
   resolvedTicketId: number | null;
+}
+
+export interface SavedSearchFilters {
+  sourceId?: string;
+  severity?: LogSeverity;
+  q?: string;
+  from?: string;
+  to?: string;
+  metadataField?: string;
+  metadataValue?: string;
+}
+
+export interface SavedSearch {
+  id: string;
+  name: string;
+  filters: SavedSearchFilters;
+  createdAt: string;
+}
+
+export interface NotificationGroupOption {
+  id: string;
+  name: string;
+}
+
+export interface RetentionSettings {
+  defaultRetentionDays: number;
+  archiveBeforePurge: boolean;
 }

@@ -1,6 +1,12 @@
 import { Component, OnInit, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { AlertRule, LOG_SEVERITIES, LogSeverity, LogSourceOption } from '../../../core/models/log.model';
+import {
+  AlertRule,
+  LOG_SEVERITIES,
+  LogSeverity,
+  LogSourceOption,
+  NotificationGroupOption,
+} from '../../../core/models/log.model';
 import { extractApiError } from '../../../core/utils/api-error';
 import { LogService } from '../services/log.service';
 
@@ -59,6 +65,25 @@ import { LogService } from '../services/log.service';
             <input [(ngModel)]="notifyEmailsRaw" name="notifyEmailsRaw" class="w-full border rounded px-2 py-1.5 text-sm" />
           </div>
           <div>
+            <label class="block text-xs text-gray-600">Notify group (optional)</label>
+            <select [(ngModel)]="notifyGroupId" name="notifyGroupId" class="w-full border rounded px-2 py-1.5 text-sm">
+              <option value="">None</option>
+              @for (g of notificationGroups(); track g.id) {
+                <option [value]="g.id">{{ g.name }}</option>
+              }
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs text-gray-600">Group by metadata field (optional)</label>
+            <input
+              [(ngModel)]="groupByMetadataField"
+              name="groupByMetadataField"
+              placeholder="e.g. sourceIp"
+              class="w-full border rounded px-2 py-1.5 text-sm"
+            />
+            <p class="text-xs text-gray-400 mt-0.5">Fires when this many events share the same value, e.g. same IP</p>
+          </div>
+          <div>
             <label class="block text-xs text-gray-600">Webhook URL (optional)</label>
             <input [(ngModel)]="webhookUrl" name="webhookUrl" class="w-full border rounded px-2 py-1.5 text-sm" />
           </div>
@@ -80,6 +105,7 @@ import { LogService } from '../services/log.service';
               <div class="font-medium text-sm">{{ rule.name }}</div>
               <div class="text-xs text-gray-500">
                 "{{ rule.pattern }}" &middot; {{ rule.thresholdCount }} in {{ rule.thresholdWindowMinutes }}m
+                {{ rule.groupByMetadataField ? ' from the same ' + rule.groupByMetadataField : '' }}
                 {{ rule.createTicket ? ' · auto-tickets' : '' }}
               </div>
             </div>
@@ -101,6 +127,7 @@ import { LogService } from '../services/log.service';
 export class AlertRulesComponent implements OnInit {
   readonly rules = signal<AlertRule[]>([]);
   readonly sources = signal<LogSourceOption[]>([]);
+  readonly notificationGroups = signal<NotificationGroupOption[]>([]);
   readonly error = signal<string | null>(null);
   readonly severities = LOG_SEVERITIES;
 
@@ -111,15 +138,22 @@ export class AlertRulesComponent implements OnInit {
   thresholdCount = 5;
   thresholdWindowMinutes = 5;
   notifyEmailsRaw = '';
+  notifyGroupId = '';
+  groupByMetadataField = '';
   webhookUrl = '';
   createTicket = false;
 
   constructor(private readonly logService: LogService) {}
 
   async ngOnInit(): Promise<void> {
-    const [rules, sources] = await Promise.all([this.logService.listAlertRules(), this.logService.sourceOptions()]);
+    const [rules, sources, notificationGroups] = await Promise.all([
+      this.logService.listAlertRules(),
+      this.logService.sourceOptions(),
+      this.logService.listNotificationGroups(),
+    ]);
     this.rules.set(rules);
     this.sources.set(sources);
+    this.notificationGroups.set(notificationGroups);
   }
 
   async create(): Promise<void> {
@@ -135,12 +169,16 @@ export class AlertRulesComponent implements OnInit {
         notifyEmails: this.notifyEmailsRaw
           ? this.notifyEmailsRaw.split(',').map((e) => e.trim()).filter(Boolean)
           : undefined,
+        notifyGroupId: this.notifyGroupId || null,
+        groupByMetadataField: this.groupByMetadataField || null,
         webhookUrl: this.webhookUrl || null,
         createTicket: this.createTicket,
       });
       this.name = '';
       this.pattern = '';
       this.notifyEmailsRaw = '';
+      this.notifyGroupId = '';
+      this.groupByMetadataField = '';
       this.webhookUrl = '';
       this.rules.set(await this.logService.listAlertRules());
     } catch (err) {

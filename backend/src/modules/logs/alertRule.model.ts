@@ -12,6 +12,14 @@ export interface AlertRuleAttributes {
   thresholdWindowMinutes: number;
   /** JSON-encoded string[] of email addresses; kept as a string column for portability. */
   notifyEmails: string | null;
+  /** Alternative/additional to notifyEmails - routes through the app's shared NotificationGroup
+   *  membership like every other alerting path (assets, tickets), rather than free-typed emails
+   *  being the only option. A rule can use either, both, or neither. */
+  notifyGroupId: string | null;
+  /** When set (a metadata field name, e.g. "sourceIp"), matches within the window are grouped by
+   *  that field's value and the rule fires if any single group meets thresholdCount - this is
+   *  what makes "N events from the SAME ip/user/etc" expressible, vs. just a raw total count. */
+  groupByMetadataField: string | null;
   webhookUrl: string | null;
   createTicket: boolean;
   isActive: boolean;
@@ -26,6 +34,8 @@ type AlertRuleCreationAttributes = Optional<
   | 'sourceId'
   | 'severityFilter'
   | 'notifyEmails'
+  | 'notifyGroupId'
+  | 'groupByMetadataField'
   | 'webhookUrl'
   | 'createTicket'
   | 'isActive'
@@ -42,6 +52,8 @@ export class AlertRule extends Model<AlertRuleAttributes, AlertRuleCreationAttri
   declare thresholdCount: number;
   declare thresholdWindowMinutes: number;
   declare notifyEmails: string | null;
+  declare notifyGroupId: string | null;
+  declare groupByMetadataField: string | null;
   declare webhookUrl: string | null;
   declare createTicket: boolean;
   declare isActive: boolean;
@@ -67,6 +79,8 @@ AlertRule.init(
     thresholdCount: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 1 },
     thresholdWindowMinutes: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 5 },
     notifyEmails: { type: DataTypes.STRING(1000), allowNull: true },
+    notifyGroupId: { type: DataTypes.UUID, allowNull: true },
+    groupByMetadataField: { type: DataTypes.STRING(100), allowNull: true },
     webhookUrl: { type: DataTypes.STRING(1000), allowNull: true },
     createTicket: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
     isActive: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: true },

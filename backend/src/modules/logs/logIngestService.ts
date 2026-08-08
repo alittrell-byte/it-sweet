@@ -2,6 +2,7 @@ import { randomBytes } from 'crypto';
 import { LogEntry, LogSeverity } from './logEntry.model';
 import { LogSource, LogSourceType } from './logSource.model';
 import { emitLogEntry } from './logEvents';
+import { parseLogFields } from './logParsers';
 
 export function generateApiKey(): string {
   return randomBytes(24).toString('hex');
@@ -39,6 +40,10 @@ export interface IngestInput {
 }
 
 export async function ingestEntry(sourceId: string | null, input: IngestInput): Promise<LogEntry> {
+  // Best-effort field extraction (source IP, Windows event ID, etc.) fills in only what the
+  // caller didn't already provide explicitly - a smart agent's own structured metadata always
+  // wins over a regex guess.
+  const parsed = parseLogFields(input.message);
   const entry = await LogEntry.create({
     sourceId,
     host: input.host ?? null,
@@ -46,7 +51,7 @@ export async function ingestEntry(sourceId: string | null, input: IngestInput): 
     message: input.message,
     raw: input.raw ?? null,
     receivedAt: input.receivedAt ?? new Date(),
-    metadata: input.metadata ?? {},
+    metadata: { ...parsed, ...(input.metadata ?? {}) },
   });
   emitLogEntry(entry);
   return entry;

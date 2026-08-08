@@ -12,6 +12,7 @@ interface NotificationGroup {
   notifyOnNewTicket: boolean;
   notifyOnLicenseOverage: boolean;
   notifyOnContractRenewal: boolean;
+  notifyOnPatchOverdue: boolean;
   members: Array<{ id: string; displayName: string; email: string }>;
 }
 
@@ -64,6 +65,14 @@ interface NotificationGroup {
                   (ngModelChange)="toggle(g, { notifyOnContractRenewal: $event })"
                 />
                 Contract renewal due
+              </label>
+              <label class="text-sm flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  [ngModel]="g.notifyOnPatchOverdue"
+                  (ngModelChange)="toggle(g, { notifyOnPatchOverdue: $event })"
+                />
+                Patch overdue
               </label>
             </div>
 

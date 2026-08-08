@@ -65,6 +65,9 @@ const envSchema = z.object({
   ALERT_EVALUATION_INTERVAL_MS: z.coerce.number().default(30000),
   RECURRING_TICKET_SWEEP_INTERVAL_MS: z.coerce.number().default(300000),
   ASSET_COMPLIANCE_SWEEP_INTERVAL_MS: z.coerce.number().default(3600000),
+  PATCH_COMPLIANCE_SWEEP_INTERVAL_MS: z.coerce.number().default(3600000),
+  PATCH_OVERDUE_DAYS: z.coerce.number().default(14),
+  REPORT_SWEEP_INTERVAL_MS: z.coerce.number().default(3600000),
 });
 
 export type Env = z.infer<typeof envSchema>;

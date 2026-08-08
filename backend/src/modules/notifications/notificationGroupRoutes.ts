@@ -7,7 +7,9 @@ import { PUBLIC_USER_ATTRIBUTES, User } from '../auth/user.model';
 import { NotificationGroup } from './notificationGroup.model';
 
 export const notificationGroupRouter = Router();
-notificationGroupRouter.use(authenticate, requireRole('admin', 'technician'), requirePermission('notifications.manage_groups'));
+notificationGroupRouter.use(authenticate, requireRole('admin', 'technician'));
+
+const MANAGE = requirePermission('notifications.manage_groups');
 
 const createSchema = z.object({
   name: z.string().min(1).max(150),
@@ -22,6 +24,9 @@ const toggleSchema = z.object({
 });
 const memberSchema = z.object({ userId: z.string().uuid() });
 
+// Any staff user can see the list of groups (needed for pickers elsewhere, e.g. the log
+// alert-rules "notify group" field) - only creating/editing groups and managing membership
+// requires notifications.manage_groups (same "read open, write gated" shape as Teams/Vendors).
 notificationGroupRouter.get(
   '/',
   asyncHandler(async (_req, res) => {
@@ -36,6 +41,7 @@ notificationGroupRouter.get(
 
 notificationGroupRouter.post(
   '/',
+  MANAGE,
   asyncHandler(async (req, res) => {
     const input = createSchema.parse(req.body);
     res.status(201).json(await NotificationGroup.create(input));
@@ -44,6 +50,7 @@ notificationGroupRouter.post(
 
 notificationGroupRouter.patch(
   '/:id/toggle',
+  MANAGE,
   asyncHandler(async (req, res) => {
     const input = toggleSchema.parse(req.body);
     const group = await NotificationGroup.findByPk(req.params.id);
@@ -55,6 +62,7 @@ notificationGroupRouter.patch(
 
 notificationGroupRouter.post(
   '/:id/members',
+  MANAGE,
   asyncHandler(async (req, res) => {
     const { userId } = memberSchema.parse(req.body);
     const group = await NotificationGroup.findByPk(req.params.id);
@@ -68,6 +76,7 @@ notificationGroupRouter.post(
 
 notificationGroupRouter.delete(
   '/:id/members/:userId',
+  MANAGE,
   asyncHandler(async (req, res) => {
     const group = await NotificationGroup.findByPk(req.params.id);
     if (!group) throw new NotFoundError('Notification group not found');

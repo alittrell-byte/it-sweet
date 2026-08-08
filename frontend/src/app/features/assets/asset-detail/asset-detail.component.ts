@@ -17,6 +17,15 @@ import { User } from '../../../core/models/user.model';
 import { AssetService, UpdateAssetInput } from '../services/asset.service';
 import { UserService } from '../../users/services/user.service';
 import { extractApiError } from '../../../core/utils/api-error';
+import { AssetPatchStatus, PatchAgentKey } from '../../../core/models/patch.model';
+import { PatchService } from '../../patches/services/patch.service';
+
+const PATCH_STATUS_BADGE: Record<string, string> = {
+  installed: 'bg-green-100 text-green-800',
+  missing: 'bg-red-100 text-red-800',
+  failed: 'bg-red-100 text-red-800',
+  pending_reboot: 'bg-amber-100 text-amber-800',
+};
 
 @Component({
   selector: 'app-asset-detail',
@@ -291,6 +300,32 @@ import { extractApiError } from '../../../core/utils/api-error';
           }
         </div>
 
+        @if (auth.hasPermission('patches.view')) {
+          <div class="bg-white p-6 rounded-lg shadow">
+            <div class="flex items-center justify-between mb-3">
+              <h2 class="font-medium">Patch Status</h2>
+              @if (auth.hasPermission('patches.manage_agents')) {
+                <button (click)="generateAgentKey()" class="text-xs text-blue-600 hover:underline">
+                  {{ agentKey() ? 'Rotate' : 'Generate' }} Agent Key
+                </button>
+              }
+            </div>
+            @if (agentKey()) {
+              <div class="text-xs text-gray-500 mb-3">
+                API Key: <code class="bg-gray-100 px-2 py-1 rounded">{{ agentKey()!.apiKey }}</code>
+              </div>
+            }
+            @for (s of patchStatuses(); track s.id) {
+              <div class="text-sm py-2 border-b last:border-b-0 flex justify-between items-center">
+                <span>{{ s.patch?.title }}</span>
+                <span class="text-xs px-2 py-1 rounded" [class]="PATCH_STATUS_BADGE[s.status]">{{ s.status }}</span>
+              </div>
+            } @empty {
+              <p class="text-sm text-gray-400">No patch scans reported for this asset yet.</p>
+            }
+          </div>
+        }
+
         <div class="bg-white p-6 rounded-lg shadow">
           <h2 class="font-medium mb-3">Linked Tickets</h2>
           @for (t of linkedTickets(); track t.id) {
@@ -320,9 +355,12 @@ export class AssetDetailComponent implements OnInit {
   readonly customFieldDefs = signal<AssetCustomFieldDefinition[]>([]);
   readonly vendors = signal<Vendor[]>([]);
   readonly users = signal<User[]>([]);
+  readonly patchStatuses = signal<AssetPatchStatus[]>([]);
+  readonly agentKey = signal<PatchAgentKey | null>(null);
   readonly statuses = ASSET_STATUSES;
   readonly saveError = signal<string | null>(null);
   readonly saveMessage = signal<string | null>(null);
+  readonly PATCH_STATUS_BADGE = PATCH_STATUS_BADGE;
 
   form: UpdateAssetInput = {};
   editable = false;
@@ -336,6 +374,7 @@ export class AssetDetailComponent implements OnInit {
     readonly auth: AuthService,
     private readonly assetService: AssetService,
     private readonly userService: UserService,
+    private readonly patchService: PatchService,
     private readonly route: ActivatedRoute,
     private readonly router: Router
   ) {}
@@ -352,6 +391,15 @@ export class AssetDetailComponent implements OnInit {
     if (this.auth.hasPermission('assets.assign')) {
       this.users.set(await this.userService.list());
     }
+    if (this.auth.hasPermission('patches.view')) {
+      this.patchStatuses.set(await this.patchService.assetPatchStatuses(this.assetId));
+    }
+  }
+
+  async generateAgentKey(): Promise<void> {
+    this.agentKey.set(
+      this.agentKey() ? await this.patchService.rotateAgentKey(this.assetId) : await this.patchService.generateAgentKey(this.assetId)
+    );
   }
 
   async reload(): Promise<void> {
