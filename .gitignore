@@ -9,6 +9,7 @@ coverage/
 .angular/
 uploads/
 
-# Ansible: real per-deployment vars and secrets, never the *.example templates
-ansible/group_vars/helpdesk.yml
+# Ansible: real per-deployment vars, never the *.example templates. vault.yml is NOT ignored -
+# once encrypted with ansible-vault its ciphertext is meant to be committed.
+ansible/group_vars/helpdesk/vars.yml
 ansible/group_vars/vault_pass.txt

@@ -33,16 +33,24 @@ on the control node for you (chicken-and-egg - that's the machine running the pl
 ## Configure
 
 ```bash
-cp group_vars/helpdesk.yml.example group_vars/helpdesk.yml
-cp group_vars/vault.yml.example group_vars/vault.yml
+cp group_vars/helpdesk/vars.yml.example group_vars/helpdesk/vars.yml
+cp group_vars/helpdesk/vault.yml.example group_vars/helpdesk/vault.yml
 ```
 
-Edit both - `helpdesk.yml` is plain (non-secret settings, including `helpdesk_repo_src`, the local
+Both files live in `group_vars/helpdesk/` (not flat `group_vars/<name>.yml`) on purpose - Ansible
+only auto-loads vars from a `group_vars/<inventory-group-name>.yml` file *or* every file inside a
+`group_vars/<inventory-group-name>/` directory. Since the inventory group is `helpdesk`
+(`inventory.ini`'s `[helpdesk]`), splitting plain vars and vault secrets into two files only works
+inside `group_vars/helpdesk/` - a same-named flat file elsewhere in `group_vars/` is silently never
+loaded, which is an easy mistake to make (and was one - an earlier version of this laid the two
+files flat as `group_vars/helpdesk.yml` + `group_vars/vault.yml`, and the latter was never read).
+
+Edit both - `vars.yml` is plain (non-secret settings, including `helpdesk_repo_src`, the local
 path to your existing `helpdesk` checkout), `vault.yml` holds the JWT secrets / DB password / seed
 admin password. Encrypt the vault file once real values are in it:
 
 ```bash
-ansible-vault encrypt group_vars/vault.yml
+ansible-vault encrypt group_vars/helpdesk/vault.yml
 ```
 
 You'll be prompted for a vault password each run (`--ask-vault-pass`), or keep one in a file
@@ -51,7 +59,7 @@ excludes `group_vars/vault_pass.txt` if you name it that).
 
 Edit `inventory.ini` with the real target server's address and SSH user.
 
-Point `helpdesk_domain` (in `helpdesk.yml`) at a domain with a DNS A/AAAA record already pointing
+Point `helpdesk_domain` (in `vars.yml`) at a domain with a DNS A/AAAA record already pointing
 at the target server - Caddy's automatic Let's Encrypt certificate needs that to succeed. No
 public domain yet? Run just the `helpdesk_app` role for now (`--tags` isn't set up since there are
 only two roles - comment `caddy_proxy` out of `site.yml`'s `roles:` list temporarily) and see
@@ -83,7 +91,7 @@ curl -s https://<helpdesk_domain>/api/health     # once Caddy/DNS/TLS are all in
   separately-cronned step.
 - **Doesn't cover MySQL/S3/LDAP.** The default path (Postgres, local file storage, local auth)
   covers `env.j2`; if you need one of those switches, add the relevant variables to
-  `group_vars/helpdesk.yml(.example)` and `roles/helpdesk_app/templates/env.j2` following the
+  `group_vars/helpdesk/vars.yml(.example)` and `roles/helpdesk_app/templates/env.j2` following the
   pattern already there - see `docs/installation-linux.md`'s "Production hardening" section for
   which `.env` keys each switch needs.
 - **Doesn't install the log/patch agents.** Those are a separate side project
