@@ -1,0 +1,4 @@
+{{ ansible_managed | comment }}
+{{ helpdesk_domain }} {
+    reverse_proxy localhost:{{ frontend_port | default(4200) }}
+}

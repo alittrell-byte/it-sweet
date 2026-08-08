@@ -1,0 +1,25 @@
+---
+# Mirrors docs/installation-linux.md's Ubuntu/Debian steps exactly - the get.docker.com
+# convenience script is what the doc tells a human to run, so the playbook runs the same thing.
+- name: Check whether Docker is already installed
+  ansible.builtin.stat:
+    path: /usr/bin/docker
+  register: helpdesk_app_docker_binary
+
+- name: Install Docker via get.docker.com
+  ansible.builtin.shell: |
+    set -e
+    curl -fsSL https://get.docker.com -o /tmp/get-docker.sh
+    sh /tmp/get-docker.sh
+    rm -f /tmp/get-docker.sh
+  when: not helpdesk_app_docker_binary.stat.exists
+  args:
+    creates: /usr/bin/docker
+
+- name: Add the SSH login user to the docker group
+  ansible.builtin.user:
+    # ansible_user (the inventory connection var), not ansible_user_id - the latter reflects
+    # whoever the play's `become` is running as by the time facts are read, not the login user.
+    name: "{{ ansible_user }}"
+    groups: docker
+    append: true

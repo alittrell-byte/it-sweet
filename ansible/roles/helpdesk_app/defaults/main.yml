@@ -1,0 +1,10 @@
+---
+# Docker Compose's own default project name comes from the *compose file's* directory basename
+# ("docker") - identical across every checkout of this repo, anywhere. Without an explicit
+# project name, two independent deployments (or a deployment and a stray local checkout) can
+# silently collide and overwrite each other's containers. Defaulting this to the remote
+# directory's basename instead keeps it unique per-deployment with zero extra configuration;
+# override it directly if you ever deploy two instances under the same directory name.
+# Deliberately named like the rest of this role's public, user-overridable config surface
+# (helpdesk_domain, helpdesk_repo_src, ...), not role-internal - hence the noqa below.
+helpdesk_project_name: "{{ helpdesk_remote_dir | basename }}"  # noqa: var-naming[no-role-prefix]

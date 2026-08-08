@@ -1,0 +1,7 @@
+---
+- name: Deploy the helpdesk app
+  hosts: helpdesk
+  become: true
+  roles:
+    - helpdesk_app
+    - caddy_proxy

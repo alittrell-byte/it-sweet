@@ -1,0 +1,51 @@
+# Copy to group_vars/helpdesk.yml and fill in real values. Non-secret only - see vault.yml.example
+# for the secrets half of this same config.
+
+# Local path on the CONTROL NODE (this machine) where you already have the private helpdesk
+# repo checked out with your normal git access - nothing new to set up here. The playbook
+# rsyncs this to the target; the target itself never touches git.
+helpdesk_repo_src: /home/you/code/helpdesk
+
+# Where the app lives on the target server.
+helpdesk_remote_dir: /opt/helpdesk
+
+# Docker Compose project name. Defaults to helpdesk_remote_dir's basename (e.g. "helpdesk") -
+# only set this explicitly if you're deploying more than one instance to the same server under
+# directories that happen to share a basename. Compose's own default (derived from the compose
+# file's directory, "docker") is NOT unique across checkouts of this repo and was found to
+# silently take over an unrelated already-running "docker" project during this role's own
+# testing - that's why this is set explicitly rather than left to Compose's default.
+# helpdesk_project_name: helpdesk
+
+# The domain users will browse to. Drives both FRONTEND_URL/CORS in .env and the Caddy TLS cert -
+# must have a DNS A/AAAA record pointing at the target server before the Caddy role runs, or
+# Let's Encrypt's HTTP-01 challenge will fail.
+helpdesk_domain: helpdesk.yourcompany.com
+
+# First-run admin account. The password half of this pair is in vault.yml.example - change it
+# (Account -> Change Password) after first login regardless.
+seed_admin_email: admin@yourcompany.com
+
+# Postgres (default) or mysql - see docker-compose.mysql.yml in the main repo for what mysql
+# mode maps to. Only postgres has been exercised by this playbook so far.
+db_dialect: postgres
+db_name: helpdesk
+db_user: helpdesk
+
+# local (default, a Docker volume) or s3. If s3, add the S3_* vars this template expects to
+# roles/helpdesk_app/templates/env.j2 and here - not included by default to keep the common
+# path simple.
+storage_driver: local
+
+email_from: helpdesk@yourcompany.com
+auth_provider: local
+
+# Uncomment only if a default port is already taken on the target server.
+# frontend_port: 4200
+# backend_port: 4000
+# db_host_port: 5432
+# minio_api_port: 9000
+# minio_console_port: 9001
+# mailhog_web_port: 8025
+# mailhog_smtp_port: 1025
+# syslog_udp_port: 514

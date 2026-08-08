@@ -1,0 +1,71 @@
+---
+- name: Install Docker (Debian/Ubuntu)
+  ansible.builtin.include_tasks: docker-debian.yml
+  when: ansible_os_family == 'Debian'
+
+- name: Install Docker (RHEL family)
+  ansible.builtin.include_tasks: docker-rhel.yml
+  when: ansible_os_family == 'RedHat'
+
+- name: Create the remote app directory
+  ansible.builtin.file:
+    path: "{{ helpdesk_remote_dir }}"
+    state: directory
+    owner: "{{ ansible_user }}"
+    mode: "0755"
+
+- name: Sync the app source from the control node's local checkout
+  ansible.posix.synchronize:
+    src: "{{ helpdesk_repo_src }}/"
+    dest: "{{ helpdesk_remote_dir }}/"
+    delete: true
+    rsync_opts:
+      - "--exclude=.git/"
+      - "--exclude=node_modules/"
+      - "--exclude=dist/"
+      - "--exclude=.env"
+  become: false
+
+- name: Template .env
+  ansible.builtin.template:
+    src: env.j2
+    dest: "{{ helpdesk_remote_dir }}/.env"
+    owner: "{{ ansible_user }}"
+    mode: "0600"
+  become: false
+
+# Plain `docker compose`, not community.docker.docker_compose_v2 - tested and found that module
+# pipes the merged config to `docker buildx bake` over stdin, which loses the compose file's own
+# directory as the base for resolving its `context: ..` build paths and fails every time
+# ("resolve : lstat .../docker: no such file or directory"). A real `docker compose -f ... up -d
+# --build` run with the project directory as cwd - the same command the install doc has a human
+# run - resolves those paths correctly, so that's what this runs instead.
+# Runs every play, not just when .env changed - it also needs to pick up any new source code
+# just synced above, and `docker compose up -d --build` is itself idempotent (no-op when nothing
+# changed), so there's no correctness reason to gate this behind a handler.
+- name: Bring the stack up
+  ansible.builtin.command:
+    # -p is not optional: without it, Compose's default project name comes from the *compose
+    # file's* directory basename ("docker"), identical across every checkout of this repo -
+    # found the hard way when this recreated an unrelated already-running "docker" project's
+    # containers under this role's own (different) config during testing. --env-file is also
+    # required - Compose's default .env search is relative to the compose file's directory when
+    # -f points into a subdirectory, not the project root/cwd, so without this flag the .env this
+    # role just templated is silently ignored and every required var comes back "missing a value".
+    cmd: >-
+      docker compose -p {{ helpdesk_project_name }} --env-file .env
+      -f docker/docker-compose.yml up -d --build
+    chdir: "{{ helpdesk_remote_dir }}"
+  changed_when: true
+
+- name: Template the systemd unit (reboot survival)
+  ansible.builtin.template:
+    src: helpdesk.service.j2
+    dest: /etc/systemd/system/helpdesk.service
+    mode: "0644"
+
+- name: Enable the helpdesk systemd unit
+  ansible.builtin.systemd:
+    name: helpdesk
+    enabled: true
+    daemon_reload: true

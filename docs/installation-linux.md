@@ -65,13 +65,13 @@ hardening](#production-hardening) section below once the basic install is confir
 ## 4. Start it
 
 ```bash
-docker compose -f docker/docker-compose.yml up -d --build
+docker compose --env-file .env -f docker/docker-compose.yml up -d --build
 ```
 
 First boot runs database migrations and seeds the admin account automatically - watch it happen:
 
 ```bash
-docker compose -f docker/docker-compose.yml logs -f backend
+docker compose --env-file .env -f docker/docker-compose.yml logs -f backend
 ```
 
 Look for `Backend listening on port 4000`. Then:
@@ -108,7 +108,7 @@ nginx + certbot works the same way if you'd rather standardize on nginx everywhe
 `https://` on 443 back to `http://localhost:4200`, same as any other app behind nginx.
 
 Once TLS is in front, update `FRONTEND_URL` in `.env` to the `https://` address and restart the
-backend (`docker compose -f docker/docker-compose.yml up -d backend`) so CORS matches.
+backend (`docker compose --env-file .env -f docker/docker-compose.yml up -d backend`) so CORS matches.
 
 ## 6. Data persistence and backups
 
@@ -124,7 +124,7 @@ Back up the database with `pg_dump` rather than copying the volume directly, so 
 consistent snapshot:
 
 ```bash
-docker compose -f docker/docker-compose.yml exec db \
+docker compose --env-file .env -f docker/docker-compose.yml exec db \
   pg_dump -U helpdesk helpdesk > "backup-$(date +%F).sql"
 ```
 
@@ -137,7 +137,7 @@ backup alone won't include attachment contents.
 ```bash
 cd helpdesk
 git pull
-docker compose -f docker/docker-compose.yml up -d --build
+docker compose --env-file .env -f docker/docker-compose.yml up -d --build
 ```
 
 Migrations run automatically on every backend container start, including updates - there's no
@@ -149,7 +149,7 @@ None of this is required to get running, but worth doing before this becomes the
 record for a real team:
 
 - **Switch to MySQL** instead of the bundled Postgres, if that's your organization's standard:
-  `docker compose -f docker/docker-compose.yml -f docker/docker-compose.mysql.yml up -d --build`.
+  `docker compose --env-file .env -f docker/docker-compose.yml -f docker/docker-compose.mysql.yml up -d --build`.
 - **Switch file storage to S3** (AWS S3, MinIO elsewhere, DigitalOcean Spaces, Backblaze, Wasabi)
   instead of the local Docker volume - set `STORAGE_DRIVER=s3` and the `S3_*` variables in `.env`.
   Leave `S3_ENDPOINT` blank for real AWS S3; set it for anything S3-compatible.
@@ -174,8 +174,8 @@ record for a real team:
   Type=oneshot
   RemainAfterExit=yes
   WorkingDirectory=/path/to/helpdesk
-  ExecStart=/usr/bin/docker compose -f docker/docker-compose.yml up -d
-  ExecStop=/usr/bin/docker compose -f docker/docker-compose.yml down
+  ExecStart=/usr/bin/docker compose --env-file .env -f docker/docker-compose.yml up -d
+  ExecStop=/usr/bin/docker compose --env-file .env -f docker/docker-compose.yml down
 
   [Install]
   WantedBy=multi-user.target
@@ -196,7 +196,7 @@ record for a real team:
 
 ## Troubleshooting
 
-- **Backend container keeps restarting**: `docker compose -f docker/docker-compose.yml logs
+- **Backend container keeps restarting**: `docker compose --env-file .env -f docker/docker-compose.yml logs
   backend` - almost always either a missing `JWT_ACCESS_SECRET`/`JWT_REFRESH_SECRET` (the app
   refuses to start without them) or the database not being ready yet on the very first boot
   (it retries automatically; give it a few seconds).

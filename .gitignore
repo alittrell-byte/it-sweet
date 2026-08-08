@@ -8,3 +8,7 @@ coverage/
 .vscode/
 .angular/
 uploads/
+
+# Ansible: real per-deployment vars and secrets, never the *.example templates
+ansible/group_vars/helpdesk.yml
+ansible/group_vars/vault_pass.txt

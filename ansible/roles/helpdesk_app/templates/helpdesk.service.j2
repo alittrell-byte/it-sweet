@@ -1,0 +1,15 @@
+{{ ansible_managed | comment }}
+[Unit]
+Description=Helpdesk (docker compose)
+Requires=docker.service
+After=docker.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+WorkingDirectory={{ helpdesk_remote_dir }}
+ExecStart=/usr/bin/docker compose -p {{ helpdesk_project_name }} --env-file .env -f docker/docker-compose.yml up -d
+ExecStop=/usr/bin/docker compose -p {{ helpdesk_project_name }} --env-file .env -f docker/docker-compose.yml down
+
+[Install]
+WantedBy=multi-user.target

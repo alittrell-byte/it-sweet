@@ -1,0 +1,15 @@
+# Copy to group_vars/vault.yml, fill in real secrets, then encrypt it in place:
+#   ansible-vault encrypt group_vars/vault.yml
+# The encrypted result (ciphertext) is safe to commit - that's the whole point of Vault. Never
+# commit this file *unencrypted*; double-check `git diff` shows BEGIN/END ANSIBLE VAULT armor,
+# not plaintext, before committing.
+
+# Generate each with: openssl rand -base64 48 - don't reuse one value for both.
+jwt_access_secret: change-me-to-a-long-random-string
+jwt_refresh_secret: change-me-to-a-different-long-random-string
+
+db_password: change-me
+
+# The first admin account's password. Change it in-app after first login; this only matters
+# for that very first login.
+seed_admin_password: change-me-too
