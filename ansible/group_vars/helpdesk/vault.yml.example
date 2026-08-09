@@ -1,5 +1,5 @@
-# Copy to group_vars/vault.yml, fill in real secrets, then encrypt it in place:
-#   ansible-vault encrypt group_vars/vault.yml
+# Copy to group_vars/helpdesk/vault.yml, fill in real secrets, then encrypt it in place:
+#   ansible-vault encrypt group_vars/helpdesk/vault.yml
 # The encrypted result (ciphertext) is safe to commit - that's the whole point of Vault. Never
 # commit this file *unencrypted*; double-check `git diff` shows BEGIN/END ANSIBLE VAULT armor,
 # not plaintext, before committing.

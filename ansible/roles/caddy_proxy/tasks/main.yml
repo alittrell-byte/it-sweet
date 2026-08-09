@@ -11,14 +11,14 @@
       - gnupg
     state: present
     update_cache: true
-  when: ansible_os_family == 'Debian'
+  when: ansible_facts['os_family'] == 'Debian'
 
 - name: Add the Caddy GPG key (Debian/Ubuntu)
   ansible.builtin.get_url:
     url: https://dl.cloudsmith.io/public/caddy/stable/gpg.key
     dest: /usr/share/keyrings/caddy-stable-archive-keyring.asc
     mode: "0644"
-  when: ansible_os_family == 'Debian'
+  when: ansible_facts['os_family'] == 'Debian'
 
 - name: Add the Caddy apt repo
   ansible.builtin.apt_repository:
@@ -27,20 +27,20 @@
       https://dl.cloudsmith.io/public/caddy/stable/deb/debian any-version main
     filename: caddy-stable
     state: present
-  when: ansible_os_family == 'Debian'
+  when: ansible_facts['os_family'] == 'Debian'
 
 - name: Install Caddy (Debian/Ubuntu)
   ansible.builtin.apt:
     name: caddy
     state: present
     update_cache: true
-  when: ansible_os_family == 'Debian'
+  when: ansible_facts['os_family'] == 'Debian'
 
 - name: Check whether the Caddy dnf repo is already configured (RHEL family)
   ansible.builtin.stat:
     path: /etc/yum.repos.d/caddy-stable.repo
   register: caddy_proxy_repo_file
-  when: ansible_os_family == 'RedHat'
+  when: ansible_facts['os_family'] == 'RedHat'
 
 # Cloudsmith's setup script is meant to be run, not treated as a raw .repo file - this runs the
 # same vendor-provided script https://caddyserver.com/docs/install tells a human to pipe to bash.
@@ -50,14 +50,14 @@
     curl -1sLf https://dl.cloudsmith.io/public/caddy/stable/config.rpm.txt -o /tmp/caddy-repo-setup.sh
     bash /tmp/caddy-repo-setup.sh
     rm -f /tmp/caddy-repo-setup.sh
-  when: ansible_os_family == 'RedHat' and not caddy_proxy_repo_file.stat.exists
+  when: ansible_facts['os_family'] == 'RedHat' and not caddy_proxy_repo_file.stat.exists
   changed_when: true
 
 - name: Install Caddy (RHEL family)
   ansible.builtin.dnf:
     name: caddy
     state: present
-  when: ansible_os_family == 'RedHat'
+  when: ansible_facts['os_family'] == 'RedHat'
 
 - name: Template the Caddyfile
   ansible.builtin.template:

@@ -1,5 +1,5 @@
-# Copy to group_vars/helpdesk.yml and fill in real values. Non-secret only - see vault.yml.example
-# for the secrets half of this same config.
+# Copy to group_vars/helpdesk/vars.yml and fill in real values. Non-secret only - see
+# vault.yml.example (same directory) for the secrets half of this same config.
 
 # Local path on the CONTROL NODE (this machine) where you already have the private helpdesk
 # repo checked out with your normal git access - nothing new to set up here. The playbook

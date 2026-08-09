@@ -4,14 +4,6 @@ Automates what [`docs/installation-linux.md`](../docs/installation-linux.md) wal
 hand: install Docker, get the app onto the server, configure it, bring it up, and put Caddy in
 front with TLS. One server, one playbook run.
 
-You don't need one on the target server. `docker compose up -d --build` builds the app's images
-*from source*, so the target needs real repo content present - but rather than have it `git
-clone` the private repo itself (which would need its own deploy key or token), this playbook
-**pushes** files from a checkout that already exists on your **control node** (wherever you run
-`ansible-playbook` from - your laptop, a CI runner). You already have git access there. Point
-`helpdesk_repo_src` at that local clone and the playbook rsyncs it to the target over the same SSH
-connection Ansible already uses for everything else. The target never touches git.
-
 ## One-time control node setup
 
 Ansible's control node needs a POSIX shell - it doesn't run natively on Windows. If you're on

@@ -1,11 +1,11 @@
 ---
 - name: Install Docker (Debian/Ubuntu)
   ansible.builtin.include_tasks: docker-debian.yml
-  when: ansible_os_family == 'Debian'
+  when: ansible_facts['os_family'] == 'Debian'
 
 - name: Install Docker (RHEL family)
   ansible.builtin.include_tasks: docker-rhel.yml
-  when: ansible_os_family == 'RedHat'
+  when: ansible_facts['os_family'] == 'RedHat'
 
 - name: Create the remote app directory
   ansible.builtin.file:
@@ -21,13 +21,13 @@
   ansible.builtin.apt:
     name: rsync
     state: present
-  when: ansible_os_family == 'Debian'
+  when: ansible_facts['os_family'] == 'Debian'
 
 - name: Install rsync (RHEL family)
   ansible.builtin.dnf:
     name: rsync
     state: present
-  when: ansible_os_family == 'RedHat'
+  when: ansible_facts['os_family'] == 'RedHat'
 
 - name: Sync the app source from the control node's local checkout
   ansible.posix.synchronize:
