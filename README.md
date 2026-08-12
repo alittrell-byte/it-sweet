@@ -5,10 +5,10 @@ Angular + Tailwind frontend, Postgres or MySQL, dockerized with independent volu
 database and for uploaded files.
 
 This repo is being built module by module. **Help Desk/Ticketing, Asset Management, Log
-Aggregation & Monitoring, Knowledge Base, Patch Management, and Reporting & Insights Hub** are
-implemented now, on top of a shared foundation (auth, storage, email, granular permissions) that
-every later module reuses. See the [Roadmap](#roadmap) below for what's next, and
-[`docs/features/`](docs/features/) for what each module does and how to use it.
+Aggregation & Monitoring, Knowledge Base, Patch Management, Reporting & Insights Hub, and Project
+Management** are implemented now, on top of a shared foundation (auth, storage, email, granular
+permissions) that every later module reuses. See the [Roadmap](#roadmap) below for what's next,
+and [`docs/features/`](docs/features/) for what each module does and how to use it.
 
 ## Stack
 
@@ -28,7 +28,7 @@ every later module reuses. See the [Roadmap](#roadmap) below for what's next, an
 cp .env.example .env
 # edit .env - at minimum set JWT_ACCESS_SECRET and JWT_REFRESH_SECRET to random strings
 
-docker compose -f docker/docker-compose.yml up -d --build
+docker compose --env-file .env -f docker/docker-compose.yml up -d --build
 ```
 
 - Frontend: http://localhost:4200
@@ -46,7 +46,7 @@ overrides" section at the bottom of `.env.example`) rather than editing the comp
 ### Switching to MySQL
 
 ```bash
-docker compose -f docker/docker-compose.yml -f docker/docker-compose.mysql.yml up -d --build
+docker compose --env-file .env -f docker/docker-compose.yml -f docker/docker-compose.mysql.yml up -d --build
 ```
 
 ### Switching file storage to S3
@@ -91,7 +91,12 @@ poll. Replies are matched to existing tickets via a `[Ticket #123]` token in the
 
 ```bash
 npm install                     # installs both workspaces
-docker compose -f docker/docker-compose.yml up -d db mailhog minio   # just the dependencies
+
+cp .env.example .env            # required even though only db/mailhog/minio run here - Compose
+                                 # validates every service's env block up front, backend's
+                                 # JWT_ACCESS_SECRET/JWT_REFRESH_SECRET included, even for
+                                 # services you're not starting
+docker compose --env-file .env -f docker/docker-compose.yml up -d db mailhog minio   # just the dependencies
 
 cp .env.example backend/.env    # backend reads its own .env in dev
 npm run backend:dev             # http://localhost:4000
@@ -133,6 +138,7 @@ docs/       Module-specific how-to guides
 - [Knowledge Base](docs/features/knowledge-base.md)
 - [Patch Management](docs/features/patch-management.md)
 - [Reporting & Insights Hub](docs/features/reporting.md)
+- [Project Management](docs/features/project-management.md)
 
 **Integration/setup how-tos:**
 
@@ -155,5 +161,10 @@ docs/       Module-specific how-to guides
 10. ✅ Reporting & Insights Hub - pulled forward ahead of Onboarding/Offboarding, Change
     Management, and ISP Tracking, since it ties every existing module together rather than adding
     a new bucket of tickets
+11. ✅ Project Management (P0) - not in the original ten; added for IT initiatives (migrations,
+    rollouts, hardware refreshes) too large for a single ticket but still built on the same
+    tickets/assets data rather than a disconnected PM tool. P1/P2 (Gantt, milestones, templates,
+    time tracking, budget, Change Request linkage, portfolio view, ...) tracked in
+    [`docs/features/project-management.md`](docs/features/project-management.md), not built yet.
 
 Each module builds on the same shared foundation and lands incrementally.

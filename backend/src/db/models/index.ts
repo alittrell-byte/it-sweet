@@ -43,6 +43,12 @@ import { AssetPatchStatus } from '../../modules/patches/assetPatchStatus.model';
 import { PatchAgentKey } from '../../modules/patches/patchAgentKey.model';
 import { MaintenanceWindow } from '../../modules/patches/maintenanceWindow.model';
 import { ScheduledReport } from '../../modules/reporting/scheduledReport.model';
+import { Project } from '../../modules/projects/project.model';
+import { ProjectTask } from '../../modules/projects/projectTask.model';
+import { ProjectMember } from '../../modules/projects/projectMember.model';
+import { ProjectTaskDependency } from '../../modules/projects/projectTaskDependency.model';
+import { ProjectTicketLink } from '../../modules/projects/projectTicketLink.model';
+import { ProjectAssetLink } from '../../modules/projects/projectAssetLink.model';
 
 // Ticket <-> User
 Ticket.belongsTo(User, { as: 'requester', foreignKey: 'requesterId' });
@@ -219,6 +225,48 @@ Asset.hasOne(PatchAgentKey, { as: 'patchAgentKey', foreignKey: 'assetId' });
 PatchAgentKey.belongsTo(Asset, { as: 'asset', foreignKey: 'assetId' });
 MaintenanceWindow.belongsTo(Team, { as: 'team', foreignKey: 'teamId' });
 
+// Projects
+Project.belongsTo(User, { as: 'owner', foreignKey: 'ownerId' });
+User.hasMany(Project, { as: 'ownedProjects', foreignKey: 'ownerId' });
+
+Project.hasMany(ProjectTask, { as: 'tasks', foreignKey: 'projectId' });
+ProjectTask.belongsTo(Project, { as: 'project', foreignKey: 'projectId' });
+ProjectTask.belongsTo(User, { as: 'assignee', foreignKey: 'assigneeId' });
+ProjectTask.belongsTo(Ticket, { as: 'spawnedTicket', foreignKey: 'ticketId' });
+
+// Membership - own model (not a bare join table) since it carries `role`; see project.model.ts.
+Project.hasMany(ProjectMember, { as: 'members', foreignKey: 'projectId' });
+ProjectMember.belongsTo(Project, { as: 'project', foreignKey: 'projectId' });
+ProjectMember.belongsTo(User, { as: 'user', foreignKey: 'userId' });
+
+// Task dependencies - self-referential many-to-many via ProjectTaskDependency. Two aliases for
+// the two traversal directions: what must finish before this task can start, and what's waiting
+// on this task.
+ProjectTask.belongsToMany(ProjectTask, {
+  as: 'dependencies',
+  through: ProjectTaskDependency,
+  foreignKey: 'taskId',
+  otherKey: 'dependsOnTaskId',
+});
+ProjectTask.belongsToMany(ProjectTask, {
+  as: 'dependents',
+  through: ProjectTaskDependency,
+  foreignKey: 'dependsOnTaskId',
+  otherKey: 'taskId',
+});
+
+// Project <-> Tickets (many-to-many via ProjectTicketLink / table project_tickets)
+Project.belongsToMany(Ticket, { as: 'linkedTickets', through: ProjectTicketLink, foreignKey: 'projectId', otherKey: 'ticketId' });
+Ticket.belongsToMany(Project, { as: 'linkedProjects', through: ProjectTicketLink, foreignKey: 'ticketId', otherKey: 'projectId' });
+// Direct associations on the through model itself, used by the list-endpoint rollup query, which
+// queries ProjectTicketLink directly with a Ticket include rather than going through the M2M.
+ProjectTicketLink.belongsTo(Ticket, { as: 'ticket', foreignKey: 'ticketId' });
+ProjectTicketLink.belongsTo(Project, { as: 'project', foreignKey: 'projectId' });
+
+// Project <-> Assets (many-to-many via ProjectAssetLink / table project_assets)
+Project.belongsToMany(Asset, { as: 'linkedAssets', through: ProjectAssetLink, foreignKey: 'projectId', otherKey: 'assetId' });
+Asset.belongsToMany(Project, { as: 'linkedProjects', through: ProjectAssetLink, foreignKey: 'assetId', otherKey: 'projectId' });
+
 export {
   User,
   UserPermission,
@@ -265,4 +313,10 @@ export {
   PatchAgentKey,
   MaintenanceWindow,
   ScheduledReport,
+  Project,
+  ProjectTask,
+  ProjectMember,
+  ProjectTaskDependency,
+  ProjectTicketLink,
+  ProjectAssetLink,
 };

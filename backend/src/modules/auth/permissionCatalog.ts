@@ -99,6 +99,17 @@ export const PERMISSION_CATALOG: PermissionModule[] = [
       { key: 'reports.manage_scheduled', label: 'Create/edit scheduled report emails' },
     ],
   },
+  {
+    module: 'projects',
+    label: 'Project Management',
+    permissions: [
+      { key: 'projects.view', label: 'View projects, tasks, and the board' },
+      { key: 'projects.create', label: 'Create projects' },
+      { key: 'projects.manage', label: 'Edit/delete projects, change status, and manage team membership' },
+      { key: 'projects.manage_tasks', label: 'Create/edit tasks, dependencies, board moves, and ticket/asset linking' },
+      { key: 'projects.delete_tasks', label: 'Delete tasks' },
+    ],
+  },
 ];
 
 export const ALL_PERMISSION_KEYS: string[] = PERMISSION_CATALOG.flatMap((m) => m.permissions.map((p) => p.key));

@@ -122,7 +122,7 @@ the built-in syslog receiver instead.
 1. In `.env`, set `LOG_SYSLOG_ENABLED=true`.
 2. Optionally set `SYSLOG_UDP_PORT` (defaults to the standard `514`) if you need it mapped to a
    different host port.
-3. Restart the backend: `docker compose -f docker/docker-compose.yml up -d --build backend`.
+3. Restart the backend: `docker compose --env-file .env -f docker/docker-compose.yml up -d --build backend`.
 4. Point the device at `your-helpdesk-host:514` (UDP) as its syslog server.
 
 The receiver parses standard BSD/RFC3164-style lines (`<PRI>Mon DD HH:MM:SS HOSTNAME message`),

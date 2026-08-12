@@ -245,6 +245,30 @@ export const routes: Routes = [
         loadComponent: () =>
           import('./features/knowledge-base/kb-browse/kb-browse.component').then((m) => m.KbBrowseComponent),
       },
+      {
+        path: 'projects/new',
+        canActivate: [permissionGuard('projects.create')],
+        loadComponent: () =>
+          import('./features/projects/project-create/project-create.component').then((m) => m.ProjectCreateComponent),
+      },
+      {
+        path: 'projects/:id/board',
+        canActivate: [permissionGuard('projects.view')],
+        loadComponent: () =>
+          import('./features/projects/project-board/project-board.component').then((m) => m.ProjectBoardComponent),
+      },
+      {
+        path: 'projects/:id',
+        canActivate: [permissionGuard('projects.view')],
+        loadComponent: () =>
+          import('./features/projects/project-detail/project-detail.component').then((m) => m.ProjectDetailComponent),
+      },
+      {
+        path: 'projects',
+        canActivate: [permissionGuard('projects.view')],
+        loadComponent: () =>
+          import('./features/projects/project-list/project-list.component').then((m) => m.ProjectListComponent),
+      },
     ],
   },
   { path: '**', redirectTo: '' },

@@ -1,5 +1,5 @@
 # Swaps Postgres for MySQL. Usage:
-#   docker compose -f docker/docker-compose.yml -f docker/docker-compose.mysql.yml up
+#   docker compose --env-file .env -f docker/docker-compose.yml -f docker/docker-compose.mysql.yml up
 services:
   db:
     image: mysql:8.4

@@ -27,6 +27,7 @@ import { savedSearchRouter } from './modules/logs/savedSearchRoutes';
 import { patchRouter } from './modules/patches/patchRoutes';
 import { patchIngestRouter } from './modules/patches/patchIngestRoutes';
 import { reportingRouter } from './modules/reporting/reportingRoutes';
+import { projectRouter } from './modules/projects/projectRoutes';
 
 export function createApp(): Express {
   const app = express();
@@ -61,6 +62,7 @@ export function createApp(): Express {
   app.use('/api/patches/ingest', patchIngestRouter);
   app.use('/api/patches', patchRouter);
   app.use('/api/reports', reportingRouter);
+  app.use('/api/projects', projectRouter);
 
   app.use(notFoundHandler);
   app.use(errorHandler);

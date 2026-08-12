@@ -184,6 +184,17 @@ export class ShellComponent {
       });
     }
 
+    if (this.auth.hasPermission('projects.view')) {
+      modules.push({
+        key: 'projects',
+        label: 'Projects',
+        children: [
+          { label: 'All Projects', path: '/projects' },
+          ...(this.auth.hasPermission('projects.create') ? [{ label: '+ New Project', path: '/projects/new' }] : []),
+        ],
+      });
+    }
+
     if (this.auth.hasPermission('notifications.manage_groups')) {
       modules.push({
         key: 'notifications',
