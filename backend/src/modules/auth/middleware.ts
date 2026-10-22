@@ -16,6 +16,18 @@ declare global {
   }
 }
 
+// GET of a single attachment: /api/<module>/<id>/attachments/<attachmentId>. Matched on the
+// URL shape rather than per-route opt-in because every module router applies `authenticate`
+// with router.use() before its routes are declared.
+const ATTACHMENT_DOWNLOAD = /\/attachments\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function allowsQueryToken(req: Request): boolean {
+  if (req.headers.accept?.includes('text/event-stream')) return true;
+  if (req.method !== 'GET') return false;
+  const path = req.originalUrl.split('?')[0];
+  return ATTACHMENT_DOWNLOAD.test(path);
+}
+
 // The access token only proves identity (its signature + expiry) - it is never trusted for
 // authorization. role/rank/isSuperAdmin/permissions/isActive are re-read from the DB on every
 // request, so revoking a permission, changing a role, deactivating, or deleting a user takes
@@ -23,16 +35,14 @@ declare global {
 // still-valid token to expire.
 export async function authenticate(req: Request, _res: Response, next: NextFunction): Promise<void> {
   const header = req.headers.authorization;
-  // The native EventSource API (used for the log-tail SSE stream) cannot set custom
-  // request headers, so it has no way to send a Bearer header - falling back to a
-  // ?token= query param is the standard accepted workaround for SSE/WebSocket auth.
-  // Access tokens are short-lived, which bounds the exposure from it landing in logs/history,
-  // and the fallback is only honoured for event-stream requests (EventSource always sends
-  // that Accept header) so ordinary API calls can't be made with a token in the URL.
-  const wantsEventStream = req.headers.accept?.includes('text/event-stream') ?? false;
+  // Two browser primitives cannot set an Authorization header: the native EventSource API
+  // (the log-tail SSE stream) and plain navigations/embeds (<a href> downloads, <img src>
+  // inline KB images). For those, and only those, a ?token= query param is honoured as the
+  // standard fallback. Access tokens are short-lived, which bounds the exposure from a token
+  // landing in logs/history, and ordinary API calls still can't be made with a token in the URL.
   const token =
     (header?.startsWith('Bearer ') ? header.slice('Bearer '.length) : undefined) ??
-    (wantsEventStream && typeof req.query.token === 'string' ? req.query.token : undefined);
+    (allowsQueryToken(req) && typeof req.query.token === 'string' ? req.query.token : undefined);
   if (!token) {
     next(new UnauthorizedError('Missing access token'));
     return;
