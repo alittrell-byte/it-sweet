@@ -67,11 +67,20 @@ import { LogService } from '../services/log.service';
               </div>
               <button (click)="remove(s.id)" class="text-xs text-red-600 hover:underline">Delete</button>
             </div>
-            <div class="mt-2 flex items-center gap-2 text-xs">
-              <span class="text-gray-500">API Key:</span>
-              <code class="bg-gray-100 px-2 py-1 rounded">{{ s.apiKey }}</code>
-              <button (click)="rotateKey(s.id)" class="text-blue-600 hover:underline">Rotate</button>
-            </div>
+            @if (revealedKey()?.sourceId === s.id) {
+              <div class="mt-2 p-2 rounded bg-amber-50 border border-amber-200 text-xs">
+                <div class="font-medium text-amber-800">New API key - copy it now. It will not be shown again.</div>
+                <div class="mt-1 flex items-center gap-2">
+                  <code class="bg-white px-2 py-1 rounded border select-all">{{ revealedKey()!.apiKey }}</code>
+                  <button (click)="revealedKey.set(null)" class="text-gray-600 hover:underline">Dismiss</button>
+                </div>
+              </div>
+            } @else {
+              <div class="mt-2 flex items-center gap-2 text-xs">
+                <span class="text-gray-500">API key: stored hashed, not viewable.</span>
+                <button (click)="rotateKey(s.id)" class="text-blue-600 hover:underline">Rotate</button>
+              </div>
+            }
             <div class="mt-2 flex items-center gap-2 text-xs">
               <span class="text-gray-500">Retention override (days, blank = use global default):</span>
               <input
@@ -114,6 +123,8 @@ export class LogSourcesComponent implements OnInit {
   readonly assets = signal<Asset[]>([]);
   readonly error = signal<string | null>(null);
   readonly purgeMessage = signal<string | null>(null);
+  /** The one-time plaintext key from the most recent register/rotate; the server never returns it again. */
+  readonly revealedKey = signal<{ sourceId: string; apiKey: string } | null>(null);
   defaultRetentionDays = 30;
   archiveBeforePurge = false;
   name = '';
@@ -160,8 +171,9 @@ export class LogSourcesComponent implements OnInit {
   async create(): Promise<void> {
     this.error.set(null);
     try {
-      await this.logService.createSource({ name: this.name, type: this.type });
+      const created = await this.logService.createSource({ name: this.name, type: this.type });
       this.name = '';
+      this.revealedKey.set({ sourceId: created.id, apiKey: created.apiKey });
       await this.load();
     } catch (err) {
       this.error.set(extractApiError(err, 'Could not register the source.'));
@@ -169,7 +181,9 @@ export class LogSourcesComponent implements OnInit {
   }
 
   async rotateKey(id: string): Promise<void> {
-    await this.logService.rotateSourceKey(id);
+    if (!confirm('Rotating issues a new key and immediately invalidates the current one. Continue?')) return;
+    const rotated = await this.logService.rotateSourceKey(id);
+    this.revealedKey.set({ sourceId: rotated.id, apiKey: rotated.apiKey });
     await this.load();
   }
 

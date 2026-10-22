@@ -16,8 +16,9 @@ concept to register.
 
 1. Log in as a user with the `patches.manage_agents` permission.
 2. Open the asset's detail page (**Assets → All Assets → pick one**).
-3. In the "Patch Status" section, click **Generate Patch Agent Key**. Copy it now - you can rotate
-   it later from the same page, but a rotated key immediately invalidates the old one.
+3. In the "Patch Status" section, click **Generate Agent Key**. Copy it now - it is shown exactly
+   once, because the server stores only a hash of it. If you lose it, **Rotate Agent Key** from the
+   same page issues a new one (which immediately invalidates the old one).
 
 ## 2. Report a scan
 

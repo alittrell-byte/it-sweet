@@ -46,9 +46,17 @@ describe('POST /api/auth/register + /api/auth/login', () => {
     expect(res.status).toBe(401);
   });
 
-  it('accepts a ?token= query param as a fallback (needed for the SSE log-tail EventSource, which cannot set headers)', async () => {
+  it('rejects a ?token= query param on an ordinary API call', async () => {
     const login = await request(app).post('/api/auth/login').send({ username: email, password });
     const res = await request(app).get(`/api/auth/me?token=${login.body.accessToken}`);
+    expect(res.status).toBe(401);
+  });
+
+  it('accepts a ?token= query param for event-stream requests (the SSE log-tail EventSource cannot set headers)', async () => {
+    const login = await request(app).post('/api/auth/login').send({ username: email, password });
+    const res = await request(app)
+      .get(`/api/auth/me?token=${login.body.accessToken}`)
+      .set('Accept', 'text/event-stream');
     expect(res.status).toBe(200);
     expect(res.body.user.email).toBe(email);
   });

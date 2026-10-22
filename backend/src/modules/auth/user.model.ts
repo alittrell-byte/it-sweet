@@ -17,13 +17,15 @@ export interface UserAttributes {
   rank: number;
   /** The one (or few) accounts that bypass rank/permission checks entirely. Only a super admin can create another. */
   isSuperAdmin: boolean;
+  /** Embedded in refresh tokens; incrementing it revokes every refresh token issued so far. */
+  tokenVersion: number;
   createdAt?: Date;
   updatedAt?: Date;
 }
 
 type UserCreationAttributes = Optional<
   UserAttributes,
-  'id' | 'passwordHash' | 'authSource' | 'externalId' | 'isActive' | 'rank' | 'isSuperAdmin' | 'createdAt' | 'updatedAt'
+  'id' | 'passwordHash' | 'authSource' | 'externalId' | 'isActive' | 'rank' | 'isSuperAdmin' | 'tokenVersion' | 'createdAt' | 'updatedAt'
 >;
 
 export class User extends Model<UserAttributes, UserCreationAttributes> implements UserAttributes {
@@ -37,6 +39,7 @@ export class User extends Model<UserAttributes, UserCreationAttributes> implemen
   declare isActive: boolean;
   declare rank: number;
   declare isSuperAdmin: boolean;
+  declare tokenVersion: number;
   declare readonly createdAt: Date;
   declare readonly updatedAt: Date;
 }
@@ -90,6 +93,11 @@ User.init(
       type: DataTypes.BOOLEAN,
       allowNull: false,
       defaultValue: false,
+    },
+    tokenVersion: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      defaultValue: 0,
     },
   },
   {

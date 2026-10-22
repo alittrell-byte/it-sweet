@@ -117,6 +117,9 @@ function todayIso(): string {
                 @if (isPastDue(project)) {
                   <span class="ml-1 text-xs px-2 py-0.5 rounded bg-red-600 text-white">Past Due</span>
                 }
+                @if (project.parentProjectName) {
+                  <div class="text-xs text-gray-400">sub-project of {{ project.parentProjectName }}</div>
+                }
               </div>
               <span class="text-xs text-gray-500">{{ project.owner?.displayName }}</span>
             </div>

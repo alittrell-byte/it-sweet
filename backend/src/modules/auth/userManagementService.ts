@@ -107,7 +107,7 @@ export async function resetUserPassword(targetId: string, newPassword: string, a
     throw new BadRequestError('This account signs in via LDAP/AD - its password is managed there, not here');
   }
   const passwordHash = await bcrypt.hash(newPassword, 10);
-  await target.update({ passwordHash });
+  await target.update({ passwordHash, tokenVersion: target.tokenVersion + 1 });
 }
 
 // Rank / super-admin status is the root of the whole hierarchy, so granting it is never

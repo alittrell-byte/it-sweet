@@ -5,14 +5,15 @@ export interface PatchAgentKeyAttributes {
   id: string;
   /** One key per asset - the agent script authenticates as "this specific device". */
   assetId: string;
-  apiKey: string;
+  /** SHA-256 of the agent's API key (see common/apiKeys.ts). The key itself is never stored. */
+  apiKeyHash: string;
   createdAt?: Date;
   updatedAt?: Date;
 }
 
 type PatchAgentKeyCreationAttributes = Optional<PatchAgentKeyAttributes, 'id' | 'createdAt' | 'updatedAt'>;
 
-// Mirrors LogSource.apiKey / logIngestService.generateApiKey exactly - a lightweight per-device
+// Mirrors LogSource.apiKeyHash exactly - a lightweight per-device
 // script (PowerShell Get-HotFix, apt list --upgradable, etc.) authenticates with this key
 // instead of a user session.
 export class PatchAgentKey
@@ -21,9 +22,14 @@ export class PatchAgentKey
 {
   declare id: string;
   declare assetId: string;
-  declare apiKey: string;
+  declare apiKeyHash: string;
   declare readonly createdAt: Date;
   declare readonly updatedAt: Date;
+
+  toJSON(): Omit<PatchAgentKeyAttributes, 'apiKeyHash'> {
+    const { apiKeyHash: _omitted, ...rest } = this.get() as PatchAgentKeyAttributes;
+    return rest;
+  }
 }
 
 PatchAgentKey.init(
@@ -34,7 +40,7 @@ PatchAgentKey.init(
       primaryKey: true,
     },
     assetId: { type: DataTypes.UUID, allowNull: false, unique: true },
-    apiKey: { type: DataTypes.STRING(64), allowNull: false, unique: true },
+    apiKeyHash: { type: DataTypes.STRING(64), allowNull: false, unique: true },
   },
   {
     sequelize,

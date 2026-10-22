@@ -1,15 +1,13 @@
-import { randomBytes } from 'crypto';
+import { generateApiKey, hashApiKey } from '../../common/apiKeys';
 import { Asset } from '../assets/asset.model';
 import { Patch, PatchClassification, PatchPlatform, PatchSeverity } from './patch.model';
 import { AssetPatchStatus, AssetPatchStatusValue } from './assetPatchStatus.model';
 import { PatchAgentKey } from './patchAgentKey.model';
 
-export function generateApiKey(): string {
-  return randomBytes(24).toString('hex');
-}
+export { generateApiKey };
 
 export async function findAssetByApiKey(apiKey: string): Promise<Asset | null> {
-  const key = await PatchAgentKey.findOne({ where: { apiKey } });
+  const key = await PatchAgentKey.findOne({ where: { apiKeyHash: hashApiKey(apiKey) } });
   if (!key) return null;
   return Asset.findByPk(key.assetId);
 }

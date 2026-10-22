@@ -12,6 +12,7 @@ import { Team } from '../../src/modules/tickets/team.model';
 import { TeamMembership } from '../../src/modules/tickets/teamMembership.model';
 import { purgeExpiredEntries } from '../../src/modules/logs/retentionService';
 import { storageProvider } from '../../src/common/storage';
+import { hashApiKey } from '../../src/common/apiKeys';
 
 const app = createApp();
 
@@ -83,7 +84,7 @@ describe('Per-source RBAC', () => {
     });
     await TeamMembership.create({ teamId: securityTeam.id, userId: securityMember.userId });
 
-    const source = await LogSource.create({ name: 'Firewall RBAC Test', type: 'http', apiKey: 'rbac-test-key', restrictedToTeamId: securityTeam.id });
+    const source = await LogSource.create({ name: 'Firewall RBAC Test', type: 'http', apiKeyHash: hashApiKey('rbac-test-key'), restrictedToTeamId: securityTeam.id });
     await ingestEntry(source.id, { message: 'restricted rbac-marker entry' });
 
     const outsiderSearch = await request(app)
@@ -163,7 +164,7 @@ describe('Metadata field/value search filter', () => {
 describe('Archive-before-purge', () => {
   it('writes an archive object to storage before deleting expired entries when the flag is enabled', async () => {
     const staff = await createStaff(app, 'p1-logs-archive-staff@example.com', { permissions: ['logs.view', 'logs.manage_retention'] });
-    const source = await LogSource.create({ name: 'Archive Test Source', type: 'http', apiKey: 'archive-test-key', retentionDays: 1 });
+    const source = await LogSource.create({ name: 'Archive Test Source', type: 'http', apiKeyHash: hashApiKey('archive-test-key'), retentionDays: 1 });
     const oldDate = new Date(Date.now() - 5 * 24 * 60 * 60 * 1000);
     await ingestEntry(source.id, { message: 'archive-marker expiring entry', receivedAt: oldDate });
 

@@ -495,6 +495,16 @@ describe('Attachments on replies', () => {
     expect(list.body.find((a: { commentId: string | null }) => a.commentId === null).fileName).toBe('ticket-level.txt');
     expect(list.body.find((a: { commentId: string | null }) => a.commentId === comment.body.id).fileName).toBe('reply.png');
 
+    // The attachment link in the UI is a plain <a href>, which cannot send a Bearer header, so
+    // the download route (and only that route) accepts the token as a query param.
+    const viaQueryToken = await request(app).get(
+      `/api/tickets/${ticket.id}/attachments/${ticketLevel.body.id}?token=${customer.token}`
+    );
+    expect(viaQueryToken.status).toBe(200);
+    expect(viaQueryToken.text).toBe('ticket level file');
+    const listViaQueryToken = await request(app).get(`/api/tickets/${ticket.id}/attachments?token=${customer.token}`);
+    expect(listViaQueryToken.status).toBe(401);
+
     const otherCustomer = await createCustomer(app, 'p1-reply-attach-other@example.com');
     const denied = await request(app).get(`/api/tickets/${ticket.id}/attachments`).set('Authorization', `Bearer ${otherCustomer.token}`);
     expect(denied.status).toBe(403);

@@ -1,5 +1,6 @@
 import { fn, col, Op } from 'sequelize';
 import { NotFoundError, BadRequestError } from '../../common/errors';
+import { storageProvider } from '../../common/storage';
 import { PUBLIC_USER_ATTRIBUTES, User } from '../auth/user.model';
 import { Ticket } from '../tickets/ticket.model';
 import { Asset } from '../assets/asset.model';
@@ -8,6 +9,10 @@ import { ProjectTask } from './projectTask.model';
 import { ProjectMember, ProjectMemberRole } from './projectMember.model';
 import { ProjectTicketLink } from './projectTicketLink.model';
 import { ProjectAssetLink } from './projectAssetLink.model';
+import { ProjectAttachment } from './projectAttachment.model';
+import { ProjectMilestone } from './projectMilestone.model';
+import { ProjectTemplate } from './projectTemplate.model';
+import { ProjectTemplateTask } from './projectTemplateTask.model';
 
 export interface CreateProjectInput {
   name: string;
@@ -18,9 +23,37 @@ export interface CreateProjectInput {
   startDate?: string | null;
   targetEndDate?: string | null;
   actualEndDate?: string | null;
+  parentProjectId?: string | null;
+  /** Instantiates the project's tasks from this template - create-only, not an updatable field. */
+  templateId?: string;
 }
 
-export type UpdateProjectInput = Partial<CreateProjectInput>;
+export type UpdateProjectInput = Partial<Omit<CreateProjectInput, 'templateId'>>;
+
+// Walks up from proposedParentId through its own ancestors - if projectId is reached, setting
+// projectId's parent to proposedParentId would close a cycle. No existing pattern to copy here:
+// KnowledgeBaseCategory has the same self-referencing shape but no cycle-check at all.
+async function wouldCreateProjectCycle(projectId: string, proposedParentId: string): Promise<boolean> {
+  if (projectId === proposedParentId) return true;
+  let current: string | null = proposedParentId;
+  const visited = new Set<string>();
+  while (current) {
+    if (current === projectId) return true;
+    if (visited.has(current)) break; // guards against pre-existing bad data looping forever
+    visited.add(current);
+    const parent: Project | null = await Project.findByPk(current, { attributes: ['parentProjectId'] });
+    current = parent?.parentProjectId ?? null;
+  }
+  return false;
+}
+
+// Templates have no absolute dates - relativeDueDays counts from the new project's own start date.
+function computeDueDateFromTemplate(startDate: string | null, relativeDueDays: number | null): string | null {
+  if (!startDate || relativeDueDays === null || relativeDueDays === undefined) return null;
+  const date = new Date(`${startDate}T00:00:00Z`);
+  date.setUTCDate(date.getUTCDate() + relativeDueDays);
+  return date.toISOString().slice(0, 10);
+}
 
 export interface ProjectListFilter {
   status?: ProjectStatus;
@@ -40,6 +73,8 @@ export interface ProjectSummary {
   startDate: string | null;
   targetEndDate: string | null;
   actualEndDate: string | null;
+  parentProjectId: string | null;
+  parentProjectName: string | null;
   percentComplete: number;
   taskCount: number;
   ticketCount: number;
@@ -77,7 +112,10 @@ export async function listProjects(filter: ProjectListFilter = {}): Promise<Proj
 
   const projects = await Project.findAll({
     where,
-    include: [{ model: User, as: 'owner', attributes: [...PUBLIC_USER_ATTRIBUTES] }],
+    include: [
+      { model: User, as: 'owner', attributes: [...PUBLIC_USER_ATTRIBUTES] },
+      { model: Project, as: 'parentProject', attributes: ['id', 'name'] },
+    ],
     order: [['createdAt', 'DESC']],
   });
 
@@ -114,6 +152,7 @@ export async function listProjects(filter: ProjectListFilter = {}): Promise<Proj
     const avgPercent = stats?.avgPercent ? Number(stats.avgPercent) : 0;
     const ticketStats = ticketStatsByProject.get(project.id) ?? { ticketCount: 0, openTicketCount: 0 };
     const owner = (project as unknown as { owner: User | null }).owner;
+    const parentProject = (project as unknown as { parentProject: Project | null }).parentProject;
 
     return {
       id: project.id,
@@ -126,6 +165,8 @@ export async function listProjects(filter: ProjectListFilter = {}): Promise<Proj
       startDate: project.startDate,
       targetEndDate: project.targetEndDate,
       actualEndDate: project.actualEndDate,
+      parentProjectId: project.parentProjectId,
+      parentProjectName: parentProject?.name ?? null,
       percentComplete: averagePercent(avgPercent * taskCount, taskCount),
       taskCount,
       ticketCount: ticketStats.ticketCount,
@@ -148,6 +189,9 @@ export interface ProjectDetail {
   startDate: string | null;
   targetEndDate: string | null;
   actualEndDate: string | null;
+  parentProjectId: string | null;
+  parentProject: { id: string; name: string } | null;
+  subProjects: Array<{ id: string; name: string; status: ProjectStatus; percentComplete: number }>;
   percentComplete: number;
   taskCounts: { todo: number; inProgress: number; done: number };
   members: Array<{ id: string; role: ProjectMemberRole; user: { id: string; displayName: string; email: string } }>;
@@ -171,6 +215,13 @@ export async function getProject(id: string): Promise<ProjectDetail> {
       { model: ProjectMember, as: 'members', include: [{ model: User, as: 'user', attributes: [...PUBLIC_USER_ATTRIBUTES] }] },
       { model: Ticket, as: 'linkedTickets', attributes: ['id', 'subject', 'status', 'priority'], through: { attributes: [] } },
       { model: Asset, as: 'linkedAssets', attributes: ['id', 'name', 'type'], through: { attributes: [] } },
+      { model: Project, as: 'parentProject', attributes: ['id', 'name'] },
+      {
+        model: Project,
+        as: 'subProjects',
+        attributes: ['id', 'name', 'status'],
+        include: [{ model: ProjectTask, as: 'tasks', attributes: ['percentComplete'] }],
+      },
     ],
   });
   if (!project) throw new NotFoundError('Project not found');
@@ -189,6 +240,8 @@ export async function getProject(id: string): Promise<ProjectDetail> {
   const members = (project as unknown as { members: (ProjectMember & { user: User })[] }).members ?? [];
   const linkedTickets = (project as unknown as { linkedTickets: Ticket[] }).linkedTickets ?? [];
   const linkedAssets = (project as unknown as { linkedAssets: Asset[] }).linkedAssets ?? [];
+  const parentProject = (project as unknown as { parentProject: Project | null }).parentProject;
+  const subProjects = (project as unknown as { subProjects: (Project & { tasks: ProjectTask[] })[] }).subProjects ?? [];
 
   return {
     id: project.id,
@@ -201,6 +254,13 @@ export async function getProject(id: string): Promise<ProjectDetail> {
     startDate: project.startDate,
     targetEndDate: project.targetEndDate,
     actualEndDate: project.actualEndDate,
+    parentProjectId: project.parentProjectId,
+    parentProject: parentProject ? { id: parentProject.id, name: parentProject.name } : null,
+    subProjects: subProjects.map((sp) => {
+      const spTasks = sp.tasks ?? [];
+      const spPercentTotal = spTasks.reduce((sum, t) => sum + t.percentComplete, 0);
+      return { id: sp.id, name: sp.name, status: sp.status, percentComplete: averagePercent(spPercentTotal, spTasks.length) };
+    }),
     percentComplete: averagePercent(percentTotal, tasks.length),
     taskCounts,
     members: members.map((m) => ({
@@ -218,13 +278,49 @@ export async function getProject(id: string): Promise<ProjectDetail> {
 export async function createProject(input: CreateProjectInput): Promise<Project> {
   const owner = await User.findByPk(input.ownerId);
   if (!owner) throw new BadRequestError('Owner not found');
-  return Project.create(input);
+  if (input.parentProjectId && !(await Project.findByPk(input.parentProjectId))) {
+    throw new BadRequestError('Parent project not found');
+  }
+
+  // Validated up front (before creating anything) so a bad templateId never leaves behind an
+  // orphan project with no tasks.
+  let templateTasks: ProjectTemplateTask[] = [];
+  if (input.templateId) {
+    const template = await ProjectTemplate.findByPk(input.templateId);
+    if (!template) throw new BadRequestError('Project template not found');
+    templateTasks = await ProjectTemplateTask.findAll({ where: { templateId: input.templateId }, order: [['position', 'ASC']] });
+  }
+
+  const { templateId, ...projectFields } = input;
+  const project = await Project.create(projectFields);
+
+  if (templateTasks.length > 0) {
+    await ProjectTask.bulkCreate(
+      templateTasks.map((templateTask, index) => ({
+        projectId: project.id,
+        title: templateTask.title,
+        description: templateTask.description,
+        dueDate: computeDueDateFromTemplate(project.startDate, templateTask.relativeDueDays),
+        position: index,
+      }))
+    );
+  }
+
+  return project;
 }
 
 export async function updateProject(id: string, input: UpdateProjectInput): Promise<Project> {
   const project = await findProjectOrThrow(id);
   if (input.ownerId && !(await User.findByPk(input.ownerId))) {
     throw new BadRequestError('Owner not found');
+  }
+  if (input.parentProjectId) {
+    if (!(await Project.findByPk(input.parentProjectId))) {
+      throw new BadRequestError('Parent project not found');
+    }
+    if (await wouldCreateProjectCycle(id, input.parentProjectId)) {
+      throw new BadRequestError('This would create a cycle in the project hierarchy');
+    }
   }
   await project.update(input);
   return project;
@@ -290,4 +386,92 @@ export async function linkAsset(projectId: string, assetId: string): Promise<voi
 
 export async function unlinkAsset(projectId: string, assetId: string): Promise<void> {
   await ProjectAssetLink.destroy({ where: { projectId, assetId } });
+}
+
+// --- Attachments ---
+
+const MAX_ATTACHMENT_BYTES = 25 * 1024 * 1024;
+
+export interface AddAttachmentInput {
+  fileName: string;
+  mimeType: string;
+  buffer: Buffer;
+}
+
+export async function listAttachments(projectId: string): Promise<ProjectAttachment[]> {
+  await findProjectOrThrow(projectId);
+  return ProjectAttachment.findAll({
+    where: { projectId },
+    order: [['createdAt', 'ASC']],
+    include: [{ model: User, as: 'uploadedBy', attributes: [...PUBLIC_USER_ATTRIBUTES] }],
+  });
+}
+
+export async function addAttachment(projectId: string, input: AddAttachmentInput, uploadedById: string): Promise<ProjectAttachment> {
+  await findProjectOrThrow(projectId);
+  if (input.buffer.length > MAX_ATTACHMENT_BYTES) {
+    throw new BadRequestError('Attachment exceeds the 25MB size limit');
+  }
+  const key = `projects/${projectId}/${Date.now()}-${input.fileName}`;
+  await storageProvider.put({ key, body: input.buffer, contentType: input.mimeType });
+  return ProjectAttachment.create({
+    projectId,
+    uploadedById,
+    fileName: input.fileName,
+    mimeType: input.mimeType,
+    sizeBytes: input.buffer.length,
+    storageKey: key,
+  });
+}
+
+export async function getAttachmentForDownload(
+  projectId: string,
+  attachmentId: string
+): Promise<{ attachment: ProjectAttachment; buffer: Buffer }> {
+  await findProjectOrThrow(projectId);
+  const attachment = await ProjectAttachment.findOne({ where: { id: attachmentId, projectId } });
+  if (!attachment) throw new NotFoundError('Attachment not found');
+  const buffer = await storageProvider.get(attachment.storageKey);
+  return { attachment, buffer };
+}
+
+export async function deleteAttachment(projectId: string, attachmentId: string): Promise<void> {
+  const attachment = await ProjectAttachment.findOne({ where: { id: attachmentId, projectId } });
+  if (!attachment) throw new NotFoundError('Attachment not found');
+  await storageProvider.delete(attachment.storageKey);
+  await attachment.destroy();
+}
+
+// --- Milestones ---
+
+export interface CreateMilestoneInput {
+  name: string;
+  dueDate?: string | null;
+}
+
+export type UpdateMilestoneInput = Partial<CreateMilestoneInput> & { completed?: boolean };
+
+export async function listMilestones(projectId: string): Promise<ProjectMilestone[]> {
+  await findProjectOrThrow(projectId);
+  return ProjectMilestone.findAll({ where: { projectId } });
+}
+
+export async function createMilestone(projectId: string, input: CreateMilestoneInput): Promise<ProjectMilestone> {
+  await findProjectOrThrow(projectId);
+  return ProjectMilestone.create({ projectId, name: input.name, dueDate: input.dueDate ?? null });
+}
+
+export async function updateMilestone(projectId: string, milestoneId: string, input: UpdateMilestoneInput): Promise<ProjectMilestone> {
+  const milestone = await ProjectMilestone.findOne({ where: { id: milestoneId, projectId } });
+  if (!milestone) throw new NotFoundError('Milestone not found');
+  const { completed, ...fields } = input;
+  const completedAt = completed === undefined ? undefined : completed ? new Date() : null;
+  await milestone.update({ ...fields, ...(completedAt !== undefined ? { completedAt } : {}) });
+  return milestone;
+}
+
+export async function deleteMilestone(projectId: string, milestoneId: string): Promise<void> {
+  const milestone = await ProjectMilestone.findOne({ where: { id: milestoneId, projectId } });
+  if (!milestone) throw new NotFoundError('Milestone not found');
+  await milestone.destroy();
 }

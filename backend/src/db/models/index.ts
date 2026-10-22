@@ -49,6 +49,10 @@ import { ProjectMember } from '../../modules/projects/projectMember.model';
 import { ProjectTaskDependency } from '../../modules/projects/projectTaskDependency.model';
 import { ProjectTicketLink } from '../../modules/projects/projectTicketLink.model';
 import { ProjectAssetLink } from '../../modules/projects/projectAssetLink.model';
+import { ProjectAttachment } from '../../modules/projects/projectAttachment.model';
+import { ProjectMilestone } from '../../modules/projects/projectMilestone.model';
+import { ProjectTemplate } from '../../modules/projects/projectTemplate.model';
+import { ProjectTemplateTask } from '../../modules/projects/projectTemplateTask.model';
 
 // Ticket <-> User
 Ticket.belongsTo(User, { as: 'requester', foreignKey: 'requesterId' });
@@ -267,6 +271,24 @@ ProjectTicketLink.belongsTo(Project, { as: 'project', foreignKey: 'projectId' })
 Project.belongsToMany(Asset, { as: 'linkedAssets', through: ProjectAssetLink, foreignKey: 'projectId', otherKey: 'assetId' });
 Asset.belongsToMany(Project, { as: 'linkedProjects', through: ProjectAssetLink, foreignKey: 'assetId', otherKey: 'projectId' });
 
+// Sub-projects - simple self-referencing hierarchy, same shape as KnowledgeBaseCategory's.
+Project.belongsTo(Project, { as: 'parentProject', foreignKey: 'parentProjectId' });
+Project.hasMany(Project, { as: 'subProjects', foreignKey: 'parentProjectId' });
+
+// Attachments
+Project.hasMany(ProjectAttachment, { as: 'attachments', foreignKey: 'projectId' });
+ProjectAttachment.belongsTo(Project, { as: 'project', foreignKey: 'projectId' });
+ProjectAttachment.belongsTo(User, { as: 'uploadedBy', foreignKey: 'uploadedById' });
+
+// Milestones
+Project.hasMany(ProjectMilestone, { as: 'milestones', foreignKey: 'projectId' });
+ProjectMilestone.belongsTo(Project, { as: 'project', foreignKey: 'projectId' });
+
+// Templates
+ProjectTemplate.hasMany(ProjectTemplateTask, { as: 'tasks', foreignKey: 'templateId' });
+ProjectTemplateTask.belongsTo(ProjectTemplate, { as: 'template', foreignKey: 'templateId' });
+ProjectTemplate.belongsTo(User, { as: 'createdBy', foreignKey: 'createdById' });
+
 export {
   User,
   UserPermission,
@@ -319,4 +341,8 @@ export {
   ProjectTaskDependency,
   ProjectTicketLink,
   ProjectAssetLink,
+  ProjectAttachment,
+  ProjectMilestone,
+  ProjectTemplate,
+  ProjectTemplateTask,
 };

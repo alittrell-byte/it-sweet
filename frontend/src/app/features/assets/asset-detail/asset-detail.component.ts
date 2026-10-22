@@ -17,7 +17,7 @@ import { User } from '../../../core/models/user.model';
 import { AssetService, UpdateAssetInput } from '../services/asset.service';
 import { UserService } from '../../users/services/user.service';
 import { extractApiError } from '../../../core/utils/api-error';
-import { AssetPatchStatus, PatchAgentKey } from '../../../core/models/patch.model';
+import { AssetPatchStatus, IssuedPatchAgentKey, PatchAgentKey } from '../../../core/models/patch.model';
 import { PatchService } from '../../patches/services/patch.service';
 
 const PATCH_STATUS_BADGE: Record<string, string> = {
@@ -310,10 +310,16 @@ const PATCH_STATUS_BADGE: Record<string, string> = {
                 </button>
               }
             </div>
-            @if (agentKey()) {
-              <div class="text-xs text-gray-500 mb-3">
-                API Key: <code class="bg-gray-100 px-2 py-1 rounded">{{ agentKey()!.apiKey }}</code>
+            @if (revealedAgentKey()) {
+              <div class="mb-3 p-2 rounded bg-amber-50 border border-amber-200 text-xs">
+                <div class="font-medium text-amber-800">New agent key - copy it now. It will not be shown again.</div>
+                <div class="mt-1 flex items-center gap-2">
+                  <code class="bg-white px-2 py-1 rounded border select-all">{{ revealedAgentKey() }}</code>
+                  <button (click)="revealedAgentKey.set(null)" class="text-gray-600 hover:underline">Dismiss</button>
+                </div>
               </div>
+            } @else if (agentKey()) {
+              <div class="text-xs text-gray-500 mb-3">Agent key issued {{ agentKey()!.createdAt | date: 'medium' }} (stored hashed, not viewable).</div>
             }
             @for (s of patchStatuses(); track s.id) {
               <div class="text-sm py-2 border-b last:border-b-0 flex justify-between items-center">
@@ -357,6 +363,8 @@ export class AssetDetailComponent implements OnInit {
   readonly users = signal<User[]>([]);
   readonly patchStatuses = signal<AssetPatchStatus[]>([]);
   readonly agentKey = signal<PatchAgentKey | null>(null);
+  /** Plaintext from the generate/rotate call just made; the server never returns it again. */
+  readonly revealedAgentKey = signal<string | null>(null);
   readonly statuses = ASSET_STATUSES;
   readonly saveError = signal<string | null>(null);
   readonly saveMessage = signal<string | null>(null);
@@ -394,12 +402,22 @@ export class AssetDetailComponent implements OnInit {
     if (this.auth.hasPermission('patches.view')) {
       this.patchStatuses.set(await this.patchService.assetPatchStatuses(this.assetId));
     }
+    if (this.auth.hasPermission('patches.manage_agents')) {
+      this.agentKey.set(await this.patchService.getAgentKey(this.assetId));
+    }
   }
 
   async generateAgentKey(): Promise<void> {
-    this.agentKey.set(
-      this.agentKey() ? await this.patchService.rotateAgentKey(this.assetId) : await this.patchService.generateAgentKey(this.assetId)
-    );
+    let issued: IssuedPatchAgentKey;
+    if (this.agentKey()) {
+      if (!confirm('Rotating issues a new key and immediately invalidates the current one. Continue?')) return;
+      issued = await this.patchService.rotateAgentKey(this.assetId);
+    } else {
+      issued = await this.patchService.generateAgentKey(this.assetId);
+    }
+    const { apiKey, ...metadata } = issued;
+    this.agentKey.set(metadata);
+    this.revealedAgentKey.set(apiKey);
   }
 
   async reload(): Promise<void> {

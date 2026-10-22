@@ -37,9 +37,16 @@ export interface AssetPatchStatus {
   missingSinceAt: string | null;
 }
 
+/** Key metadata. The secret itself is never readable after issue - the server stores a hash. */
 export interface PatchAgentKey {
   id: string;
   assetId: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** Returned only by generate and rotate: the one time the plaintext key is available. */
+export interface IssuedPatchAgentKey extends PatchAgentKey {
   apiKey: string;
 }
 

@@ -6,14 +6,25 @@ const boolFromString = z
   .optional()
   .transform((v) => v === 'true' || v === '1');
 
+const jwtSecret = (name: string) =>
+  z
+    .string()
+    .min(32, `${name} must be at least 32 characters (try: openssl rand -base64 48)`)
+    .refine((v) => !v.startsWith('change-me'), `${name} is still the .env.example placeholder`);
+
 const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   PORT: z.coerce.number().default(4000),
   FRONTEND_URL: z.string().default('http://localhost:4200'),
   CORS_ORIGIN: z.string().default('http://localhost:4200'),
+  // Number of reverse-proxy hops to trust for X-Forwarded-For (req.ip, used by rate limiting).
+  // 0 when the API is exposed directly - trusting the header then would let clients spoof their IP.
+  TRUST_PROXY: z.coerce.number().int().min(0).default(0),
 
-  JWT_ACCESS_SECRET: z.string().min(1, 'JWT_ACCESS_SECRET is required'),
-  JWT_REFRESH_SECRET: z.string().min(1, 'JWT_REFRESH_SECRET is required'),
+  // HS256 is only as strong as its secret; short ones can be brute-forced offline from any token,
+  // and the .env.example placeholders are public, so refuse those too.
+  JWT_ACCESS_SECRET: jwtSecret('JWT_ACCESS_SECRET'),
+  JWT_REFRESH_SECRET: jwtSecret('JWT_REFRESH_SECRET'),
   JWT_ACCESS_TTL: z.string().default('15m'),
   JWT_REFRESH_TTL: z.string().default('7d'),
 

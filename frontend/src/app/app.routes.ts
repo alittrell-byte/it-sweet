@@ -252,6 +252,14 @@ export const routes: Routes = [
           import('./features/projects/project-create/project-create.component').then((m) => m.ProjectCreateComponent),
       },
       {
+        // Static path - must be registered before 'projects/:id', which would otherwise treat
+        // "templates" as a project id.
+        path: 'projects/templates',
+        canActivate: [permissionGuard('projects.manage_templates')],
+        loadComponent: () =>
+          import('./features/projects/project-templates/project-templates.component').then((m) => m.ProjectTemplatesComponent),
+      },
+      {
         path: 'projects/:id/board',
         canActivate: [permissionGuard('projects.view')],
         loadComponent: () =>

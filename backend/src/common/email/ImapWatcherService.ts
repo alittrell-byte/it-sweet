@@ -10,11 +10,24 @@ export interface InboundEmail {
   text: string;
   /** Ticket number parsed out of a `[Ticket #123]` token in the subject, if present. */
   ticketId: number | null;
+  /**
+   * True only when our receiving mail server recorded `dmarc=pass` for this message. The From
+   * header itself is trivially forged, so anything that trusts the sender's identity beyond
+   * customer level must check this first.
+   */
+  senderVerified: boolean;
 }
 
 export type InboundEmailHandler = (email: InboundEmail) => Promise<void>;
 
 const TICKET_TOKEN_RE = /\[Ticket #(\d+)\]/i;
+
+// Only the topmost Authentication-Results header is trustworthy: it's the one our own receiving
+// server prepended. Lower ones arrived with the message and could have been written by the sender.
+function dmarcPassed(header: unknown): boolean {
+  const top = Array.isArray(header) ? header[0] : header;
+  return typeof top === 'string' && /\bdmarc=pass\b/i.test(top);
+}
 
 // Entirely optional email-to-ticket gateway. Disabled unless EMAIL_INBOUND_ENABLED=true,
 // so a deployment that only needs outbound SMTP notifications never has to touch this.
@@ -64,6 +77,7 @@ export class ImapWatcherService {
             subject,
             text: parsed.text ?? '',
             ticketId: tokenMatch ? Number(tokenMatch[1]) : null,
+            senderVerified: dmarcPassed(parsed.headers.get('authentication-results')),
           });
           await client.messageFlagsAdd(message.uid, ['\\Seen'], { uid: true });
         }

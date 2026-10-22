@@ -1,4 +1,5 @@
-import { NotFoundError } from '../../common/errors';
+import { hashApiKey } from '../../common/apiKeys';
+import { ConflictError, NotFoundError } from '../../common/errors';
 import { Asset } from '../assets/asset.model';
 import { Patch, PatchApprovalStatus, PatchClassification, PatchPlatform } from './patch.model';
 import { AssetPatchStatus } from './assetPatchStatus.model';
@@ -98,19 +99,43 @@ export async function getComplianceReport(): Promise<ComplianceReportRow[]> {
   return rows.sort((a, b) => a.assetName.localeCompare(b.assetName));
 }
 
-async function getOrCreateAgentKey(assetId: string): Promise<PatchAgentKey> {
+export interface IssuedAgentKey {
+  key: PatchAgentKey;
+  /** The plaintext key. It exists only in this response - the DB keeps a hash. */
+  apiKey: string;
+}
+
+async function assertAssetExists(assetId: string): Promise<void> {
   const asset = await Asset.findByPk(assetId);
   if (!asset) throw new NotFoundError('Asset not found');
-  const [key] = await PatchAgentKey.findOrCreate({ where: { assetId }, defaults: { assetId, apiKey: generateApiKey() } });
-  return key;
 }
 
-export function generateAgentKey(assetId: string): Promise<PatchAgentKey> {
-  return getOrCreateAgentKey(assetId);
+/** Metadata only (no secret), so the UI can tell whether a key exists and when it was issued. */
+export async function getAgentKey(assetId: string): Promise<PatchAgentKey | null> {
+  await assertAssetExists(assetId);
+  return PatchAgentKey.findOne({ where: { assetId } });
 }
 
-export async function rotateAgentKey(assetId: string): Promise<PatchAgentKey> {
-  const key = await getOrCreateAgentKey(assetId);
-  await key.update({ apiKey: generateApiKey() });
-  return key;
+// Keys are hashed at rest, so an existing key can't be shown again. Generating is therefore
+// create-only; a second call is a 409 and the caller must rotate, which makes "this will
+// invalidate the running agent" an explicit choice rather than a side effect of a re-click.
+export async function generateAgentKey(assetId: string): Promise<IssuedAgentKey> {
+  await assertAssetExists(assetId);
+  if (await PatchAgentKey.findOne({ where: { assetId } })) {
+    throw new ConflictError('This asset already has an agent key. Rotate it to issue a new one.');
+  }
+  const apiKey = generateApiKey();
+  const key = await PatchAgentKey.create({ assetId, apiKeyHash: hashApiKey(apiKey) });
+  return { key, apiKey };
+}
+
+export async function rotateAgentKey(assetId: string): Promise<IssuedAgentKey> {
+  await assertAssetExists(assetId);
+  const apiKey = generateApiKey();
+  const [key, created] = await PatchAgentKey.findOrCreate({
+    where: { assetId },
+    defaults: { assetId, apiKeyHash: hashApiKey(apiKey) },
+  });
+  if (!created) await key.update({ apiKeyHash: hashApiKey(apiKey) });
+  return { key, apiKey };
 }

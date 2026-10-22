@@ -30,6 +30,12 @@ function unbindAsync(client: Client): Promise<void> {
   return new Promise((resolve) => client.unbind(() => resolve()));
 }
 
+// RFC 4515 escaping for a value placed inside a search filter. Without it, a username like
+// `*` or `x)(uid=*` rewrites the filter itself - e.g. `*` matches every account in the base.
+export function escapeLdapFilterValue(value: string): string {
+  return value.replace(/[\\*()\0]/g, (ch) => `\\${ch.charCodeAt(0).toString(16).padStart(2, '0')}`);
+}
+
 function attr(entry: SearchEntry, name: string): string | undefined {
   const found = entry.attributes.find((a) => a.type === name);
   return found?.values?.[0] as string | undefined;
@@ -54,7 +60,7 @@ export class LdapAuthProvider implements AuthProvider {
     let entry: SearchEntry | null;
     try {
       await bindAsync(searchClient, env.LDAP_BIND_DN, env.LDAP_BIND_PASSWORD);
-      const filter = env.LDAP_SEARCH_FILTER.replace(/\{\{username\}\}/g, username);
+      const filter = env.LDAP_SEARCH_FILTER.replace(/\{\{username\}\}/g, () => escapeLdapFilterValue(username));
       entry = await searchAsync(searchClient, env.LDAP_SEARCH_BASE, filter);
     } catch (err) {
       logger.error('LDAP directory search failed', { err });

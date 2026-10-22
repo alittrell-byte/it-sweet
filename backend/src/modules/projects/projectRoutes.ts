@@ -1,9 +1,13 @@
 import { Router } from 'express';
+import multer from 'multer';
 import { z } from 'zod';
 import { asyncHandler } from '../../common/asyncHandler';
 import { authenticate, requirePermission, requireRole } from '../auth/middleware';
 import * as projectService from './projectService';
 import * as projectTaskService from './projectTaskService';
+import * as projectTemplateService from './projectTemplateService';
+
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 25 * 1024 * 1024 } });
 
 export const projectRouter = Router();
 projectRouter.use(authenticate, requireRole('admin', 'technician'), requirePermission('projects.view'));
@@ -12,6 +16,7 @@ const CREATE = requirePermission('projects.create');
 const MANAGE = requirePermission('projects.manage');
 const MANAGE_TASKS = requirePermission('projects.manage_tasks');
 const DELETE_TASKS = requirePermission('projects.delete_tasks');
+const MANAGE_TEMPLATES = requirePermission('projects.manage_templates');
 
 const PROJECT_STATUSES = ['planning', 'active', 'on_hold', 'completed', 'cancelled'] as const;
 const PROJECT_PRIORITIES = ['low', 'medium', 'high', 'urgent'] as const;
@@ -27,8 +32,92 @@ const createProjectSchema = z.object({
   startDate: z.string().nullable().optional(),
   targetEndDate: z.string().nullable().optional(),
   actualEndDate: z.string().nullable().optional(),
+  parentProjectId: z.string().uuid().nullable().optional(),
+  // Create-only - instantiates the project's tasks from the template. Not part of the update schema.
+  templateId: z.string().uuid().optional(),
 });
-const updateProjectSchema = createProjectSchema.partial();
+const updateProjectSchema = createProjectSchema.omit({ templateId: true }).partial();
+
+// --- Templates ---
+// Registered before '/:id' - a static '/templates' path would otherwise be swallowed by the
+// dynamic '/:id' route below, same ordering rule already followed for tasks/members routes.
+
+const createTemplateSchema = z.object({ name: z.string().min(1).max(200), description: z.string().nullable().optional() });
+const updateTemplateSchema = createTemplateSchema.partial();
+const createTemplateTaskSchema = z.object({
+  title: z.string().min(1).max(200),
+  description: z.string().nullable().optional(),
+  relativeDueDays: z.number().int().min(0).nullable().optional(),
+});
+const updateTemplateTaskSchema = createTemplateTaskSchema.partial();
+
+projectRouter.get(
+  '/templates',
+  asyncHandler(async (_req, res) => {
+    res.json(await projectTemplateService.listTemplates());
+  })
+);
+
+projectRouter.post(
+  '/templates',
+  MANAGE_TEMPLATES,
+  asyncHandler(async (req, res) => {
+    const input = createTemplateSchema.parse(req.body);
+    res.status(201).json(await projectTemplateService.createTemplate(input, req.user!.sub));
+  })
+);
+
+projectRouter.get(
+  '/templates/:templateId',
+  asyncHandler(async (req, res) => {
+    res.json(await projectTemplateService.getTemplate(req.params.templateId));
+  })
+);
+
+projectRouter.patch(
+  '/templates/:templateId',
+  MANAGE_TEMPLATES,
+  asyncHandler(async (req, res) => {
+    const input = updateTemplateSchema.parse(req.body);
+    res.json(await projectTemplateService.updateTemplate(req.params.templateId, input));
+  })
+);
+
+projectRouter.delete(
+  '/templates/:templateId',
+  MANAGE_TEMPLATES,
+  asyncHandler(async (req, res) => {
+    await projectTemplateService.deleteTemplate(req.params.templateId);
+    res.status(204).send();
+  })
+);
+
+projectRouter.post(
+  '/templates/:templateId/tasks',
+  MANAGE_TEMPLATES,
+  asyncHandler(async (req, res) => {
+    const input = createTemplateTaskSchema.parse(req.body);
+    res.status(201).json(await projectTemplateService.addTemplateTask(req.params.templateId, input));
+  })
+);
+
+projectRouter.patch(
+  '/templates/:templateId/tasks/:taskId',
+  MANAGE_TEMPLATES,
+  asyncHandler(async (req, res) => {
+    const input = updateTemplateTaskSchema.parse(req.body);
+    res.json(await projectTemplateService.updateTemplateTask(req.params.templateId, req.params.taskId, input));
+  })
+);
+
+projectRouter.delete(
+  '/templates/:templateId/tasks/:taskId',
+  MANAGE_TEMPLATES,
+  asyncHandler(async (req, res) => {
+    await projectTemplateService.deleteTemplateTask(req.params.templateId, req.params.taskId);
+    res.status(204).send();
+  })
+);
 
 const listFilterSchema = z.object({
   status: z.enum(PROJECT_STATUSES).optional(),
@@ -149,6 +238,94 @@ projectRouter.delete(
   MANAGE_TASKS,
   asyncHandler(async (req, res) => {
     await projectService.unlinkAsset(req.params.id, req.params.assetId);
+    res.status(204).send();
+  })
+);
+
+// --- Attachments ---
+
+projectRouter.get(
+  '/:id/attachments',
+  asyncHandler(async (req, res) => {
+    res.json(await projectService.listAttachments(req.params.id));
+  })
+);
+
+projectRouter.post(
+  '/:id/attachments',
+  MANAGE,
+  upload.single('file'),
+  asyncHandler(async (req, res) => {
+    const file = req.file;
+    if (!file) {
+      res.status(400).json({ error: 'No file uploaded' });
+      return;
+    }
+    const attachment = await projectService.addAttachment(
+      req.params.id,
+      { fileName: file.originalname, mimeType: file.mimetype, buffer: file.buffer },
+      req.user!.sub
+    );
+    res.status(201).json(attachment);
+  })
+);
+
+projectRouter.get(
+  '/:id/attachments/:attachmentId',
+  asyncHandler(async (req, res) => {
+    const { attachment, buffer } = await projectService.getAttachmentForDownload(req.params.id, req.params.attachmentId);
+    // Same as ticket downloads: res.attachment() escapes the uploader-supplied name, and it
+    // guesses Content-Type from the extension, so the stored type is set after it.
+    res.attachment(attachment.fileName);
+    res.setHeader('Content-Type', attachment.mimeType);
+    res.send(buffer);
+  })
+);
+
+projectRouter.delete(
+  '/:id/attachments/:attachmentId',
+  MANAGE,
+  asyncHandler(async (req, res) => {
+    await projectService.deleteAttachment(req.params.id, req.params.attachmentId);
+    res.status(204).send();
+  })
+);
+
+// --- Milestones ---
+
+const createMilestoneSchema = z.object({ name: z.string().min(1).max(200), dueDate: z.string().nullable().optional() });
+const updateMilestoneSchema = createMilestoneSchema.partial().extend({ completed: z.boolean().optional() });
+
+projectRouter.get(
+  '/:id/milestones',
+  asyncHandler(async (req, res) => {
+    res.json(await projectService.listMilestones(req.params.id));
+  })
+);
+
+projectRouter.post(
+  '/:id/milestones',
+  MANAGE,
+  asyncHandler(async (req, res) => {
+    const input = createMilestoneSchema.parse(req.body);
+    res.status(201).json(await projectService.createMilestone(req.params.id, input));
+  })
+);
+
+projectRouter.patch(
+  '/:id/milestones/:milestoneId',
+  MANAGE,
+  asyncHandler(async (req, res) => {
+    const input = updateMilestoneSchema.parse(req.body);
+    res.json(await projectService.updateMilestone(req.params.id, req.params.milestoneId, input));
+  })
+);
+
+projectRouter.delete(
+  '/:id/milestones/:milestoneId',
+  MANAGE,
+  asyncHandler(async (req, res) => {
+    await projectService.deleteMilestone(req.params.id, req.params.milestoneId);
     res.status(204).send();
   })
 );
