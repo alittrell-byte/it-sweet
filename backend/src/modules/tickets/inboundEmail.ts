@@ -18,7 +18,13 @@ async function findOrCreateRequester(email: string, displayName: string | null):
   });
 }
 
-function actorFor(user: User): AccessTokenPayload {
+// A forged From: header must not borrow a staff member's identity, so unless the receiving
+// server verified the sender (DMARC pass), the email acts with customer-level access only:
+// it can open tickets and reply to tickets the sender requested, nothing more.
+function actorFor(user: User, senderVerified: boolean): AccessTokenPayload {
+  if (!senderVerified) {
+    return { sub: user.id, role: 'customer', email: user.email, rank: 0, isSuperAdmin: false, permissions: [] };
+  }
   return { sub: user.id, role: user.role, email: user.email, rank: user.rank, isSuperAdmin: user.isSuperAdmin, permissions: [] };
 }
 
@@ -27,7 +33,7 @@ function actorFor(user: User): AccessTokenPayload {
 export async function handleInboundEmail(email: InboundEmail): Promise<void> {
   try {
     const requester = await findOrCreateRequester(email.fromAddress, email.fromName);
-    const actor = actorFor(requester);
+    const actor = actorFor(requester, email.senderVerified);
 
     if (email.ticketId) {
       await ticketService.addComment(email.ticketId, { body: email.text, isInternal: false }, actor);
