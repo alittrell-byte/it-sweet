@@ -5,8 +5,8 @@ process.env.NODE_ENV = process.env.NODE_ENV || 'test';
 // Defaults to the OS temp dir rather than the production '/data/files' default (env.ts), which
 // isn't guaranteed writable/creatable in every dev/CI environment this suite runs in.
 process.env.STORAGE_LOCAL_DIR = process.env.STORAGE_LOCAL_DIR || path.join(os.tmpdir(), 'helpdesk-test-storage');
-process.env.JWT_ACCESS_SECRET = process.env.JWT_ACCESS_SECRET || 'test-access-secret';
-process.env.JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET || 'test-refresh-secret';
+process.env.JWT_ACCESS_SECRET = process.env.JWT_ACCESS_SECRET || 'test-access-secret-at-least-32-characters';
+process.env.JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET || 'test-refresh-secret-at-least-32-characters';
 process.env.DB_DIALECT = process.env.DB_DIALECT || 'postgres';
 process.env.DB_HOST = process.env.DB_HOST || 'localhost';
 process.env.DB_PORT = process.env.DB_PORT || '5432';

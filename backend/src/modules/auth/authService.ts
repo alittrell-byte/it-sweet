@@ -51,7 +51,7 @@ function issueTokens(user: User): TokenPair {
   const accessToken = jwt.sign({ sub: user.id }, env.JWT_ACCESS_SECRET, {
     expiresIn: env.JWT_ACCESS_TTL as jwt.SignOptions['expiresIn'],
   });
-  const refreshToken = jwt.sign({ sub: user.id }, env.JWT_REFRESH_SECRET, {
+  const refreshToken = jwt.sign({ sub: user.id, ver: user.tokenVersion }, env.JWT_REFRESH_SECRET, {
     expiresIn: env.JWT_REFRESH_TTL as jwt.SignOptions['expiresIn'],
   });
   return { accessToken, refreshToken };
@@ -125,20 +125,40 @@ export async function changeOwnPassword(userId: string, currentPassword: string,
     throw new UnauthorizedError('Current password is incorrect');
   }
   const passwordHash = await bcrypt.hash(newPassword, 10);
-  await user.update({ passwordHash });
+  // Signs out every other session too - if the old password leaked, so may have its tokens.
+  await user.update({ passwordHash, tokenVersion: user.tokenVersion + 1 });
 }
 
-export async function refreshAccessToken(refreshToken: string): Promise<TokenPair> {
-  let decoded: { sub: string };
+function verifyRefreshToken(refreshToken: string): { sub: string; ver?: number } {
   try {
-    decoded = jwt.verify(refreshToken, env.JWT_REFRESH_SECRET) as { sub: string };
+    return jwt.verify(refreshToken, env.JWT_REFRESH_SECRET) as { sub: string; ver?: number };
   } catch {
     throw new UnauthorizedError('Invalid or expired refresh token');
   }
+}
+
+export async function refreshAccessToken(refreshToken: string): Promise<TokenPair> {
+  const decoded = verifyRefreshToken(refreshToken);
   const user = await User.findByPk(decoded.sub);
-  if (!user || !user.isActive) {
+  // A version mismatch means the token predates a logout or password change: it's revoked.
+  if (!user || !user.isActive || decoded.ver !== user.tokenVersion) {
     throw new UnauthorizedError('Invalid or expired refresh token');
   }
   return issueTokens(user);
+}
+
+// Revokes all of the user's refresh tokens (every device), not just this browser's cookie.
+// Stateless JWTs have no per-token record to delete, so the version bump is the revocation.
+export async function revokeRefreshTokens(refreshToken: string): Promise<void> {
+  let decoded: { sub: string; ver?: number };
+  try {
+    decoded = verifyRefreshToken(refreshToken);
+  } catch {
+    return; // already invalid - nothing to revoke
+  }
+  const user = await User.findByPk(decoded.sub);
+  if (user && decoded.ver === user.tokenVersion) {
+    await user.update({ tokenVersion: user.tokenVersion + 1 });
+  }
 }
 

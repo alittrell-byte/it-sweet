@@ -26,10 +26,13 @@ export async function authenticate(req: Request, _res: Response, next: NextFunct
   // The native EventSource API (used for the log-tail SSE stream) cannot set custom
   // request headers, so it has no way to send a Bearer header - falling back to a
   // ?token= query param is the standard accepted workaround for SSE/WebSocket auth.
-  // Access tokens are short-lived, which bounds the exposure from it landing in logs/history.
+  // Access tokens are short-lived, which bounds the exposure from it landing in logs/history,
+  // and the fallback is only honoured for event-stream requests (EventSource always sends
+  // that Accept header) so ordinary API calls can't be made with a token in the URL.
+  const wantsEventStream = req.headers.accept?.includes('text/event-stream') ?? false;
   const token =
     (header?.startsWith('Bearer ') ? header.slice('Bearer '.length) : undefined) ??
-    (typeof req.query.token === 'string' ? req.query.token : undefined);
+    (wantsEventStream && typeof req.query.token === 'string' ? req.query.token : undefined);
   if (!token) {
     next(new UnauthorizedError('Missing access token'));
     return;

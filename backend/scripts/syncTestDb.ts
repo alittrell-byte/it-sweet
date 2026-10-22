@@ -2,8 +2,8 @@
 // suite runs. Production/dev deployments use the real migrations (npm run migrate)
 // instead - this sync-based reset is only for fast, disposable test runs.
 process.env.NODE_ENV = 'test';
-process.env.JWT_ACCESS_SECRET = process.env.JWT_ACCESS_SECRET || 'test-access-secret';
-process.env.JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET || 'test-refresh-secret';
+process.env.JWT_ACCESS_SECRET = process.env.JWT_ACCESS_SECRET || 'test-access-secret-at-least-32-characters';
+process.env.JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET || 'test-refresh-secret-at-least-32-characters';
 process.env.DB_NAME = process.env.DB_NAME || 'helpdesk_test';
 
 import { sequelize } from '../src/db/sequelize';

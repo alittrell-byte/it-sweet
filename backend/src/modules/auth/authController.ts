@@ -73,7 +73,9 @@ export async function changePassword(req: Request, res: Response): Promise<void>
   res.status(204).send();
 }
 
-export async function logout(_req: Request, res: Response): Promise<void> {
+export async function logout(req: Request, res: Response): Promise<void> {
+  const token = req.cookies?.[REFRESH_COOKIE];
+  if (token) await authService.revokeRefreshTokens(token);
   res.clearCookie(REFRESH_COOKIE, cookieOptions);
   res.status(204).send();
 }
