@@ -37,6 +37,41 @@ staff with a role (**lead**, **contributor**, **reviewer**). This is organizatio
 visibility, not an access-control gate: it doesn't restrict who can view or edit the project
 beyond the normal `projects.*` permissions.
 
+## Sub-projects
+
+A project can have a parent - useful for large, multi-phase initiatives that are really several
+related projects (e.g. a company move split into "Office Fit-out," "Network Cutover," "Furniture
+Delivery"). Set **Parent Project** on the child, or use **+ Add Sub-project** from the parent's
+detail page to pre-fill it. Cycle prevention rejects a project becoming its own ancestor at any
+depth. Deliberately **no automatic rollup** - a parent's percent-complete and task counts are based
+on its own tasks only; sub-projects show their own independent progress in a dedicated list. This
+avoids drifting into portfolio-rollup territory that belongs to a future dashboard, not this basic
+hierarchy link.
+
+## Milestones
+
+Checkpoint markers independent of individual tasks - useful for stakeholder-facing status updates
+("Phase 1 complete," "Go-live") that don't map to one specific task. Add a name and optional due
+date on the project detail page; check it off when reached (and back off, if needed) or delete it.
+
+## Templates
+
+**Projects → Project Templates** (gated by `projects.manage_templates`, separate from
+`projects.manage` - managing the shared template library is a different responsibility than
+managing one project) - build a reusable task checklist for a recurring initiative type ("New
+Office Setup," "OS Migration," "Vendor Onboarding"). Each template task can carry a
+**relative due date** (days after the new project's start date) since a template has no absolute
+dates of its own. Pick a template from the **Start from template** dropdown when creating a new
+project (top-level projects only, not sub-projects) and its tasks are copied in immediately, due
+dates computed from whatever start date you set.
+
+## Attachments
+
+Project detail has an Attachments section for supporting files - specs, floor plans, vendor
+quotes. Uses the same storage backend as ticket and knowledge base attachments
+(`STORAGE_DRIVER=local` or `s3`), gated by `projects.view` to browse/download and `projects.manage`
+to upload/delete.
+
 ## Linking tickets and assets
 
 **Project detail** has its own Linked Tickets and Linked Assets sections - pull an existing ticket
@@ -50,27 +85,25 @@ harder-to-find bucket.
 
 | Key | Grants |
 |---|---|
-| `projects.view` | View projects, tasks, and the board |
+| `projects.view` | View projects, tasks, the board, milestones, and attachments |
 | `projects.create` | Create projects |
-| `projects.manage` | Edit/delete projects, change status, manage team membership |
-| `projects.manage_tasks` | Create/edit/delete tasks, dependencies, board moves, ticket/asset linking |
+| `projects.manage` | Edit/delete projects, change status, manage team membership, milestones, and attachments, set/change parent project |
+| `projects.manage_tasks` | Create/edit tasks, dependencies, board moves, ticket/asset linking |
+| `projects.delete_tasks` | Delete tasks - separate from `manage_tasks` so task cleanup can be restricted independently |
+| `projects.manage_templates` | Create/edit/delete project templates and their task lists |
 
 ## Not built yet (roadmap)
 
-This module ships its P0 tier only. Tracked for later, in the order raised:
+P0 and part of P1 (attachments, sub-projects, templates, milestones) ship now. Tracked for later:
 
 **Should-have (P1)**
 - Gantt/timeline view with dependency lines
-- Milestones independent of individual tasks
-- Project templates for recurring initiatives (e.g. "New Office Setup," "OS Migration")
 - Time tracking on tasks, rolled up to total project hours
 - Budget field (planned vs. actual) linked to the procurement/contract module
-- File/document attachments and a project notes section (linking to the Knowledge Base rather
-  than duplicating it)
+- A project notes/wiki section (linking to the Knowledge Base rather than duplicating it)
 - Change Request linkage - blocked on the Change Management module not existing yet
 - Notifications on task assignment, due-date approaching, and status changes
 - A dedicated project dashboard (burndown, overdue items, cross-project team workload)
-- Sub-projects / parent-child relationships for multi-phase initiatives
 
 **Future (P2)**
 - Resource capacity planning across projects (avoid double-booking a technician against the

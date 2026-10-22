@@ -1,3 +1,4 @@
+import { HttpClient } from '@angular/common/http';
 import { Component, OnInit, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
@@ -8,13 +9,16 @@ import {
   PROJECT_STATUSES,
   ProjectDetail,
   ProjectMemberRole,
+  ProjectMilestone,
   ProjectPriority,
   ProjectStatus,
+  ProjectSummary,
 } from '../../../core/models/project.model';
 import { Ticket } from '../../../core/models/ticket.model';
 import { Asset } from '../../../core/models/asset.model';
 import { User } from '../../../core/models/user.model';
 import { extractApiError } from '../../../core/utils/api-error';
+import { downloadFile } from '../../../core/utils/download';
 import { UserService } from '../../users/services/user.service';
 import { TicketService } from '../../tickets/services/ticket.service';
 import { AssetService } from '../../assets/services/asset.service';
@@ -36,9 +40,14 @@ import { ProjectService, UpdateProjectInput } from '../services/project.service'
             }
             <a [routerLink]="['/projects', projectId, 'board']" class="text-sm text-blue-600 hover:underline">View Board →</a>
           </div>
+          @if (p.parentProject; as parent) {
+            <a [routerLink]="['/projects', parent.id]" class="text-xs text-gray-500 hover:text-blue-600">
+              sub-project of {{ parent.name }}
+            </a>
+          }
 
           @if (editable) {
-            <textarea [(ngModel)]="form.description" rows="2" class="w-full border rounded px-2 py-1 text-sm mb-3"></textarea>
+            <textarea [(ngModel)]="form.description" rows="2" class="w-full border rounded px-2 py-1 text-sm mb-3 mt-2"></textarea>
           } @else if (p.description) {
             <p class="text-sm text-gray-600 mb-3">{{ p.description }}</p>
           }
@@ -73,7 +82,19 @@ import { ProjectService, UpdateProjectInput } from '../services/project.service'
               <label class="block text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Owner</label>
               <p class="py-1">{{ p.owner?.displayName || '-' }}</p>
             </div>
-            <div></div>
+            <div>
+              <label class="block text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Parent Project</label>
+              @if (editable) {
+                <select [(ngModel)]="form.parentProjectId" class="w-full border rounded px-2 py-1 text-sm">
+                  <option [ngValue]="null">(none - top level)</option>
+                  @for (candidate of parentCandidates(); track candidate.id) {
+                    <option [ngValue]="candidate.id">{{ candidate.name }}</option>
+                  }
+                </select>
+              } @else {
+                <p class="py-1">{{ p.parentProject?.name || '-' }}</p>
+              }
+            </div>
             <div>
               <label class="block text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Start</label>
               @if (editable) {
@@ -159,6 +180,95 @@ import { ProjectService, UpdateProjectInput } from '../services/project.service'
         </div>
 
         <div class="bg-white p-6 rounded-lg shadow">
+          <div class="flex items-center justify-between mb-3">
+            <h2 class="font-medium">Sub-projects</h2>
+            @if (auth.hasPermission('projects.create')) {
+              <a [routerLink]="['/projects/new']" [queryParams]="{ parentId: projectId }" class="text-xs text-blue-600 hover:underline">
+                + Add Sub-project
+              </a>
+            }
+          </div>
+          @for (sub of p.subProjects; track sub.id) {
+            <a [routerLink]="['/projects', sub.id]" class="flex items-center justify-between text-sm py-1 hover:text-blue-600">
+              <span>{{ sub.name }} <span class="text-xs text-gray-400">({{ sub.status }})</span></span>
+              <span class="text-xs text-gray-500">{{ sub.percentComplete }}% complete</span>
+            </a>
+          } @empty {
+            <p class="text-sm text-gray-400">No sub-projects.</p>
+          }
+        </div>
+
+        <div class="bg-white p-6 rounded-lg shadow">
+          <h2 class="font-medium mb-3">Milestones</h2>
+          @for (milestone of milestones(); track milestone.id) {
+            <div class="flex items-center justify-between text-sm py-1">
+              <div class="flex items-center gap-2">
+                @if (manageable) {
+                  <input
+                    type="checkbox"
+                    [checked]="!!milestone.completedAt"
+                    (change)="toggleMilestone(milestone)"
+                    class="cursor-pointer"
+                  />
+                }
+                <span [class.line-through]="milestone.completedAt" [class.text-gray-400]="milestone.completedAt">
+                  {{ milestone.name }}
+                </span>
+                @if (milestone.dueDate) {
+                  <span class="text-xs text-gray-500">due {{ milestone.dueDate }}</span>
+                }
+              </div>
+              @if (manageable) {
+                <button (click)="deleteMilestone(milestone.id)" class="text-xs text-red-600 hover:underline">Delete</button>
+              }
+            </div>
+          } @empty {
+            <p class="text-sm text-gray-400">No milestones yet.</p>
+          }
+          @if (manageable) {
+            <div class="flex gap-2 mt-3">
+              <input [(ngModel)]="newMilestoneName" placeholder="Milestone name" class="flex-1 border rounded px-2 py-1.5 text-sm" />
+              <input type="date" [(ngModel)]="newMilestoneDueDate" class="border rounded px-2 py-1.5 text-sm" />
+              <button (click)="addMilestone()" class="text-sm bg-slate-800 text-white rounded px-4 py-1.5 hover:bg-slate-700">
+                Add
+              </button>
+            </div>
+          }
+        </div>
+
+        <div class="bg-white p-6 rounded-lg shadow">
+          <h2 class="font-medium mb-3">Attachments</h2>
+          @for (attachment of attachments(); track attachment.id) {
+            <div class="flex items-center justify-between text-sm py-1">
+              <button (click)="downloadAttachment(attachment.id, attachment.fileName)" class="hover:text-blue-600 text-left">
+                {{ attachment.fileName }}
+              </button>
+              <div class="flex items-center gap-2 text-xs text-gray-500">
+                <span>{{ formatBytes(attachment.sizeBytes) }}</span>
+                @if (manageable) {
+                  <button (click)="deleteAttachment(attachment.id)" class="text-red-600 hover:underline">Delete</button>
+                }
+              </div>
+            </div>
+          } @empty {
+            <p class="text-sm text-gray-400">No attachments.</p>
+          }
+          @if (manageable) {
+            <div class="mt-3">
+              <input type="file" (change)="onAttachmentFileSelected($event)" class="text-sm" />
+              @if (attachmentToUpload) {
+                <button (click)="uploadAttachment()" class="ml-2 text-sm bg-slate-800 text-white rounded px-4 py-1.5 hover:bg-slate-700">
+                  Upload
+                </button>
+              }
+              @if (attachmentError()) {
+                <p class="text-sm text-red-600 mt-1">{{ attachmentError() }}</p>
+              }
+            </div>
+          }
+        </div>
+
+        <div class="bg-white p-6 rounded-lg shadow">
           <h2 class="font-medium mb-3">Linked Tickets</h2>
           @for (ticket of p.linkedTickets; track ticket.id) {
             <div class="flex items-center justify-between text-sm py-1">
@@ -225,8 +335,12 @@ export class ProjectDetailComponent implements OnInit {
   readonly staff = signal<User[]>([]);
   readonly allTickets = signal<Ticket[]>([]);
   readonly allAssets = signal<Asset[]>([]);
+  readonly allProjects = signal<ProjectSummary[]>([]);
+  readonly milestones = signal<ProjectMilestone[]>([]);
+  readonly attachments = signal<{ id: string; fileName: string; sizeBytes: number }[]>([]);
   readonly saveError = signal<string | null>(null);
   readonly saveMessage = signal<string | null>(null);
+  readonly attachmentError = signal<string | null>(null);
 
   projectId = '';
   editable = false;
@@ -237,10 +351,14 @@ export class ProjectDetailComponent implements OnInit {
   memberRoleToAdd: ProjectMemberRole = 'contributor';
   ticketToLink: number | '' = '';
   assetToLink = '';
+  newMilestoneName = '';
+  newMilestoneDueDate = '';
+  attachmentToUpload: File | null = null;
 
   constructor(
     readonly auth: AuthService,
     private readonly route: ActivatedRoute,
+    private readonly http: HttpClient,
     private readonly projectService: ProjectService,
     private readonly userService: UserService,
     private readonly ticketService: TicketService,
@@ -268,18 +386,25 @@ export class ProjectDetailComponent implements OnInit {
       priority: project.priority,
       startDate: project.startDate,
       targetEndDate: project.targetEndDate,
+      parentProjectId: project.parentProjectId,
     };
 
     // These only feed the "link a new X" pickers - a failure or missing permission in any one of
     // them must not block viewing the project itself, which is already loaded above.
-    const [users, tickets, assets] = await Promise.all([
+    const [users, tickets, assets, allProjects, milestones, attachments] = await Promise.all([
       this.userService.list().catch(() => [] as User[]),
       this.ticketService.listTickets({}).catch(() => [] as Ticket[]),
       this.canBrowseAssets ? this.assetService.list().catch(() => [] as Asset[]) : Promise.resolve([] as Asset[]),
+      this.projectService.listProjects().catch(() => [] as ProjectSummary[]),
+      this.projectService.listMilestones(this.projectId).catch(() => [] as ProjectMilestone[]),
+      this.projectService.listAttachments(this.projectId).catch(() => []),
     ]);
     this.staff.set(users.filter((u) => u.role !== 'customer'));
     this.allTickets.set(tickets);
     this.allAssets.set(assets);
+    this.allProjects.set(allProjects);
+    this.milestones.set(milestones);
+    this.attachments.set(attachments);
   }
 
   addableMembers(): User[] {
@@ -301,6 +426,24 @@ export class ProjectDetailComponent implements OnInit {
     if (!p) return [];
     const linkedIds = new Set(p.linkedAssets.map((a) => a.id));
     return this.allAssets().filter((a) => !linkedIds.has(a.id));
+  }
+
+  // Excludes this project itself and every one of its descendants - picking a descendant as the
+  // parent would close a cycle the backend rejects anyway, but filtering it out of the dropdown
+  // means the user never sees an option that's guaranteed to fail.
+  parentCandidates(): ProjectSummary[] {
+    const descendantIds = new Set<string>([this.projectId]);
+    let added = true;
+    while (added) {
+      added = false;
+      for (const proj of this.allProjects()) {
+        if (proj.parentProjectId && descendantIds.has(proj.parentProjectId) && !descendantIds.has(proj.id)) {
+          descendantIds.add(proj.id);
+          added = true;
+        }
+      }
+    }
+    return this.allProjects().filter((p) => !descendantIds.has(p.id));
   }
 
   async save(): Promise<void> {
@@ -359,5 +502,57 @@ export class ProjectDetailComponent implements OnInit {
   async unlinkAsset(assetId: string): Promise<void> {
     await this.projectService.unlinkAsset(this.projectId, assetId);
     await this.reload();
+  }
+
+  async addMilestone(): Promise<void> {
+    if (!this.newMilestoneName.trim()) return;
+    await this.projectService.createMilestone(this.projectId, {
+      name: this.newMilestoneName,
+      dueDate: this.newMilestoneDueDate || null,
+    });
+    this.newMilestoneName = '';
+    this.newMilestoneDueDate = '';
+    await this.reload();
+  }
+
+  async toggleMilestone(milestone: ProjectMilestone): Promise<void> {
+    await this.projectService.updateMilestone(this.projectId, milestone.id, { completed: !milestone.completedAt });
+    await this.reload();
+  }
+
+  async deleteMilestone(milestoneId: string): Promise<void> {
+    await this.projectService.deleteMilestone(this.projectId, milestoneId);
+    await this.reload();
+  }
+
+  onAttachmentFileSelected(event: Event): void {
+    this.attachmentToUpload = (event.target as HTMLInputElement).files?.[0] ?? null;
+  }
+
+  async uploadAttachment(): Promise<void> {
+    if (!this.attachmentToUpload) return;
+    this.attachmentError.set(null);
+    try {
+      await this.projectService.uploadAttachment(this.projectId, this.attachmentToUpload);
+      this.attachmentToUpload = null;
+      await this.reload();
+    } catch (err) {
+      this.attachmentError.set(extractApiError(err, 'Could not upload the attachment.'));
+    }
+  }
+
+  async downloadAttachment(attachmentId: string, fileName: string): Promise<void> {
+    await downloadFile(this.http, this.projectService.attachmentDownloadUrl(this.projectId, attachmentId), fileName);
+  }
+
+  async deleteAttachment(attachmentId: string): Promise<void> {
+    await this.projectService.deleteAttachment(this.projectId, attachmentId);
+    await this.reload();
+  }
+
+  formatBytes(bytes: number): string {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   }
 }

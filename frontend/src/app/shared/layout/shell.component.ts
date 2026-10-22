@@ -191,6 +191,9 @@ export class ShellComponent {
         children: [
           { label: 'All Projects', path: '/projects' },
           ...(this.auth.hasPermission('projects.create') ? [{ label: '+ New Project', path: '/projects/new' }] : []),
+          ...(this.auth.hasPermission('projects.manage_templates')
+            ? [{ label: 'Project Templates', path: '/projects/templates' }]
+            : []),
         ],
       });
     }

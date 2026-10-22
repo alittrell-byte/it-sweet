@@ -108,6 +108,7 @@ export const PERMISSION_CATALOG: PermissionModule[] = [
       { key: 'projects.manage', label: 'Edit/delete projects, change status, and manage team membership' },
       { key: 'projects.manage_tasks', label: 'Create/edit tasks, dependencies, board moves, and ticket/asset linking' },
       { key: 'projects.delete_tasks', label: 'Delete tasks' },
+      { key: 'projects.manage_templates', label: 'Create/edit/delete project templates' },
     ],
   },
 ];

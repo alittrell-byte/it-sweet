@@ -31,6 +31,8 @@ export interface ProjectSummary {
   startDate: string | null;
   targetEndDate: string | null;
   actualEndDate: string | null;
+  parentProjectId: string | null;
+  parentProjectName: string | null;
   percentComplete: number;
   taskCount: number;
   ticketCount: number;
@@ -59,6 +61,13 @@ export interface ProjectLinkedAsset {
   type: string;
 }
 
+export interface ProjectSubProject {
+  id: string;
+  name: string;
+  status: ProjectStatus;
+  percentComplete: number;
+}
+
 export interface ProjectDetail {
   id: string;
   name: string;
@@ -70,6 +79,9 @@ export interface ProjectDetail {
   startDate: string | null;
   targetEndDate: string | null;
   actualEndDate: string | null;
+  parentProjectId: string | null;
+  parentProject: { id: string; name: string } | null;
+  subProjects: ProjectSubProject[];
   percentComplete: number;
   taskCounts: { todo: number; inProgress: number; done: number };
   members: ProjectMember[];
@@ -93,4 +105,42 @@ export interface ProjectTask {
   ticketId: number | null;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface ProjectAttachment {
+  id: string;
+  projectId: string;
+  fileName: string;
+  mimeType: string;
+  sizeBytes: number;
+  uploadedById: string | null;
+  uploadedBy?: PublicUser | null;
+  createdAt: string;
+}
+
+export interface ProjectMilestone {
+  id: string;
+  projectId: string;
+  name: string;
+  dueDate: string | null;
+  completedAt: string | null;
+}
+
+export interface ProjectTemplateTask {
+  id: string;
+  templateId: string;
+  title: string;
+  description: string | null;
+  relativeDueDays: number | null;
+  position: number;
+}
+
+export interface ProjectTemplate {
+  id: string;
+  name: string;
+  description: string | null;
+  createdById: string | null;
+  createdBy?: PublicUser | null;
+  tasks: ProjectTemplateTask[];
+  createdAt: string;
 }

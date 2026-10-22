@@ -1,7 +1,7 @@
 import { Component, OnInit, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { Router } from '@angular/router';
-import { PROJECT_PRIORITIES, PROJECT_STATUSES, ProjectPriority, ProjectStatus } from '../../../core/models/project.model';
+import { ActivatedRoute, Router } from '@angular/router';
+import { PROJECT_PRIORITIES, PROJECT_STATUSES, ProjectPriority, ProjectStatus, ProjectTemplate } from '../../../core/models/project.model';
 import { User } from '../../../core/models/user.model';
 import { extractApiError } from '../../../core/utils/api-error';
 import { AuthService } from '../../../core/services/auth.service';
@@ -14,8 +14,11 @@ import { ProjectService } from '../services/project.service';
   imports: [FormsModule],
   template: `
     <div class="max-w-2xl mx-auto">
-      <h1 class="text-xl font-semibold mb-4">New Project</h1>
+      <h1 class="text-xl font-semibold mb-4">{{ parentId ? 'New Sub-project' : 'New Project' }}</h1>
       <form (ngSubmit)="create()" class="bg-white p-6 rounded-lg shadow space-y-3">
+        @if (parentProjectName()) {
+          <p class="text-xs text-gray-500">Sub-project of <span class="font-medium">{{ parentProjectName() }}</span></p>
+        }
         <div>
           <label class="block text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Name</label>
           <input [(ngModel)]="name" name="name" required class="w-full border rounded px-2 py-1.5 text-sm" />
@@ -24,6 +27,17 @@ import { ProjectService } from '../services/project.service';
           <label class="block text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Description</label>
           <textarea [(ngModel)]="description" name="description" rows="3" class="w-full border rounded px-2 py-1.5 text-sm"></textarea>
         </div>
+        @if (!parentId && templates().length > 0) {
+          <div>
+            <label class="block text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Start from template</label>
+            <select [(ngModel)]="templateId" name="templateId" class="w-full border rounded px-2 py-1.5 text-sm">
+              <option value="">(none)</option>
+              @for (t of templates(); track t.id) {
+                <option [value]="t.id">{{ t.name }}</option>
+              }
+            </select>
+          </div>
+        }
         <div class="grid grid-cols-2 gap-3">
           <div>
             <label class="block text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Owner</label>
@@ -78,6 +92,8 @@ export class ProjectCreateComponent implements OnInit {
   readonly statuses = PROJECT_STATUSES;
   readonly priorities = PROJECT_PRIORITIES;
   readonly staff = signal<User[]>([]);
+  readonly templates = signal<ProjectTemplate[]>([]);
+  readonly parentProjectName = signal<string | null>(null);
   readonly error = signal<string | null>(null);
 
   name = '';
@@ -87,19 +103,34 @@ export class ProjectCreateComponent implements OnInit {
   priority: ProjectPriority = 'medium';
   startDate = '';
   targetEndDate = '';
+  templateId = '';
+  parentId = '';
 
   constructor(
     readonly auth: AuthService,
+    private readonly route: ActivatedRoute,
     private readonly userService: UserService,
     private readonly projectService: ProjectService,
     private readonly router: Router
   ) {}
 
   async ngOnInit(): Promise<void> {
-    const users = await this.userService.list();
+    this.parentId = this.route.snapshot.queryParamMap.get('parentId') ?? '';
+
+    const [users, templates] = await Promise.all([
+      this.userService.list(),
+      this.auth.hasPermission('projects.view') ? this.projectService.listTemplates().catch(() => []) : Promise.resolve([]),
+    ]);
     this.staff.set(users.filter((u) => u.role !== 'customer'));
+    this.templates.set(templates);
+
     const currentUserId = this.auth.currentUser()?.id;
     if (currentUserId) this.ownerId = currentUserId;
+
+    if (this.parentId) {
+      const parent = await this.projectService.getProject(this.parentId).catch(() => null);
+      if (parent) this.parentProjectName.set(parent.name);
+    }
   }
 
   async create(): Promise<void> {
@@ -113,6 +144,8 @@ export class ProjectCreateComponent implements OnInit {
         priority: this.priority,
         startDate: this.startDate || null,
         targetEndDate: this.targetEndDate || null,
+        parentProjectId: this.parentId || null,
+        templateId: this.templateId || undefined,
       });
       await this.router.navigate(['/projects', project.id]);
     } catch (err) {

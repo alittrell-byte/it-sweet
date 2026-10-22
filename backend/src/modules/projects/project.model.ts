@@ -14,13 +14,24 @@ export interface ProjectAttributes {
   startDate: string | null;
   targetEndDate: string | null;
   actualEndDate: string | null;
+  /** Simple self-referencing hierarchy for multi-phase initiatives; null = top-level project. */
+  parentProjectId: string | null;
   createdAt?: Date;
   updatedAt?: Date;
 }
 
 type ProjectCreationAttributes = Optional<
   ProjectAttributes,
-  'id' | 'description' | 'status' | 'priority' | 'startDate' | 'targetEndDate' | 'actualEndDate' | 'createdAt' | 'updatedAt'
+  | 'id'
+  | 'description'
+  | 'status'
+  | 'priority'
+  | 'startDate'
+  | 'targetEndDate'
+  | 'actualEndDate'
+  | 'parentProjectId'
+  | 'createdAt'
+  | 'updatedAt'
 >;
 
 export class Project extends Model<ProjectAttributes, ProjectCreationAttributes> implements ProjectAttributes {
@@ -33,6 +44,7 @@ export class Project extends Model<ProjectAttributes, ProjectCreationAttributes>
   declare startDate: string | null;
   declare targetEndDate: string | null;
   declare actualEndDate: string | null;
+  declare parentProjectId: string | null;
   declare readonly createdAt: Date;
   declare readonly updatedAt: Date;
 }
@@ -56,6 +68,7 @@ Project.init(
     startDate: { type: DataTypes.DATEONLY, allowNull: true },
     targetEndDate: { type: DataTypes.DATEONLY, allowNull: true },
     actualEndDate: { type: DataTypes.DATEONLY, allowNull: true },
+    parentProjectId: { type: DataTypes.UUID, allowNull: true },
   },
   { sequelize, modelName: 'Project', tableName: 'projects', timestamps: true }
 );
