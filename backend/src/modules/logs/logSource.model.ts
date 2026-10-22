@@ -7,7 +7,8 @@ export interface LogSourceAttributes {
   id: string;
   name: string;
   type: LogSourceType;
-  apiKey: string;
+  /** SHA-256 of the ingest API key (see common/apiKeys.ts). The key itself is never stored. */
+  apiKeyHash: string;
   /** Null falls back to the global LogRetentionSetting default. */
   retentionDays: number | null;
   /** Null = visible to anyone with logs.view (today's default). Set = additionally requires
@@ -28,12 +29,18 @@ export class LogSource extends Model<LogSourceAttributes, LogSourceCreationAttri
   declare id: string;
   declare name: string;
   declare type: LogSourceType;
-  declare apiKey: string;
+  declare apiKeyHash: string;
   declare retentionDays: number | null;
   declare restrictedToTeamId: string | null;
   declare assetId: string | null;
   declare readonly createdAt: Date;
   declare readonly updatedAt: Date;
+
+  // Sources are returned straight from routes via res.json(); keep the hash out of every response.
+  toJSON(): Omit<LogSourceAttributes, 'apiKeyHash'> {
+    const { apiKeyHash: _omitted, ...rest } = this.get() as LogSourceAttributes;
+    return rest;
+  }
 }
 
 LogSource.init(
@@ -49,7 +56,7 @@ LogSource.init(
       allowNull: false,
       defaultValue: 'http',
     },
-    apiKey: { type: DataTypes.STRING(64), allowNull: false, unique: true },
+    apiKeyHash: { type: DataTypes.STRING(64), allowNull: false, unique: true },
     retentionDays: { type: DataTypes.INTEGER, allowNull: true },
     restrictedToTeamId: { type: DataTypes.UUID, allowNull: true },
     assetId: { type: DataTypes.UUID, allowNull: true },

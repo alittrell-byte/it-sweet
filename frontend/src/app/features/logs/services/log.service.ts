@@ -12,6 +12,7 @@ import {
   LogSource,
   LogSourceOption,
   LogSourceType,
+  LogSourceWithKey,
   NotificationGroupOption,
   RetentionSettings,
   SavedSearch,
@@ -85,16 +86,16 @@ export class LogService {
     return firstValueFrom(this.http.get<LogSource[]>('/api/logs/sources'));
   }
 
-  createSource(input: CreateSourceInput): Promise<LogSource> {
-    return firstValueFrom(this.http.post<LogSource>('/api/logs/sources', input));
+  createSource(input: CreateSourceInput): Promise<LogSourceWithKey> {
+    return firstValueFrom(this.http.post<LogSourceWithKey>('/api/logs/sources', input));
   }
 
   updateSource(id: string, input: Partial<CreateSourceInput>): Promise<LogSource> {
     return firstValueFrom(this.http.patch<LogSource>(`/api/logs/sources/${id}`, input));
   }
 
-  rotateSourceKey(id: string): Promise<LogSource> {
-    return firstValueFrom(this.http.post<LogSource>(`/api/logs/sources/${id}/rotate-key`, {}));
+  rotateSourceKey(id: string): Promise<LogSourceWithKey> {
+    return firstValueFrom(this.http.post<LogSourceWithKey>(`/api/logs/sources/${id}/rotate-key`, {}));
   }
 
   deleteSource(id: string): Promise<void> {

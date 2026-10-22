@@ -19,11 +19,15 @@ export interface LogSourceOption {
 }
 
 export interface LogSource extends LogSourceOption {
-  apiKey: string;
   retentionDays: number | null;
   restrictedToTeamId: string | null;
   assetId: string | null;
   createdAt: string;
+}
+
+/** Returned only by create and rotate-key: the server keeps a hash, so the key is shown once. */
+export interface LogSourceWithKey extends LogSource {
+  apiKey: string;
 }
 
 export interface LogEntry {

@@ -23,8 +23,9 @@ API key for HTTP ingestion.
    - `http` - for anything pushing to the HTTP ingestion API
    - `syslog` - for anything sending raw syslog over UDP
    - `internal` - reserved for logs the app generates about itself, if you wire that up later
-4. Click **Register**. You'll get back an **API key** - copy it now (you can view/rotate it later
-   from the same page, but a rotated key immediately invalidates the old one).
+4. Click **Register**. You'll get back an **API key** - copy it now. It is shown exactly once: the
+   server stores only a hash of it, so it can't be displayed again. If you lose it, **Rotate** the
+   source from the same page to get a new one (which immediately invalidates the old one).
 
 You don't have to pre-register a source for syslog UDP sends specifically - anything that shows up
 without a matching source lands in an auto-created "Unregistered" source so nothing is lost, but

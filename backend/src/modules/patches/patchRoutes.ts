@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { asyncHandler } from '../../common/asyncHandler';
+import { NotFoundError } from '../../common/errors';
 import { authenticate, requirePermission, requireRole } from '../auth/middleware';
 import * as patchService from './patchService';
 import * as maintenanceWindowService from './maintenanceWindowService';
@@ -28,11 +29,22 @@ patchRouter.get(
   })
 );
 
+patchRouter.get(
+  '/assets/:assetId/agent-key',
+  MANAGE_AGENTS,
+  asyncHandler(async (req, res) => {
+    const key = await patchService.getAgentKey(req.params.assetId);
+    if (!key) throw new NotFoundError('No agent key has been issued for this asset');
+    res.json(key);
+  })
+);
+
 patchRouter.post(
   '/assets/:assetId/agent-key',
   MANAGE_AGENTS,
   asyncHandler(async (req, res) => {
-    res.status(201).json(await patchService.generateAgentKey(req.params.assetId));
+    const { key, apiKey } = await patchService.generateAgentKey(req.params.assetId);
+    res.status(201).json({ ...key.toJSON(), apiKey });
   })
 );
 
@@ -40,7 +52,8 @@ patchRouter.post(
   '/assets/:assetId/agent-key/rotate',
   MANAGE_AGENTS,
   asyncHandler(async (req, res) => {
-    res.json(await patchService.rotateAgentKey(req.params.assetId));
+    const { key, apiKey } = await patchService.rotateAgentKey(req.params.assetId);
+    res.json({ ...key.toJSON(), apiKey });
   })
 );
 

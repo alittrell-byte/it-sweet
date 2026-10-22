@@ -5,7 +5,7 @@ import { asyncHandler } from '../../common/asyncHandler';
 import { NotFoundError } from '../../common/errors';
 import { authenticate, requirePermission, requireRole } from '../auth/middleware';
 import { LogSource } from './logSource.model';
-import { generateApiKey } from './logIngestService';
+import { generateApiKey, hashApiKey } from '../../common/apiKeys';
 import { logEventBus } from './logEvents';
 import { LogEntry } from './logEntry.model';
 import * as searchService from './logSearchService';
@@ -129,8 +129,10 @@ logRouter.post(
   SOURCES,
   asyncHandler(async (req, res) => {
     const input = createSourceSchema.parse(req.body);
-    const source = await LogSource.create({ ...input, apiKey: generateApiKey() });
-    res.status(201).json(source);
+    // The key is only ever sent back here and from rotate-key: the DB holds just its hash.
+    const apiKey = generateApiKey();
+    const source = await LogSource.create({ ...input, apiKeyHash: hashApiKey(apiKey) });
+    res.status(201).json({ ...source.toJSON(), apiKey });
   })
 );
 
@@ -154,8 +156,9 @@ logRouter.post(
   asyncHandler(async (req, res) => {
     const source = await LogSource.findByPk(req.params.id);
     if (!source) throw new NotFoundError('Log source not found');
-    await source.update({ apiKey: generateApiKey() });
-    res.json(source);
+    const apiKey = generateApiKey();
+    await source.update({ apiKeyHash: hashApiKey(apiKey) });
+    res.json({ ...source.toJSON(), apiKey });
   })
 );
 

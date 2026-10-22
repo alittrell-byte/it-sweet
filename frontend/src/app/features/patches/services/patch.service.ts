@@ -1,10 +1,11 @@
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { Injectable } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 import { Team } from '../../../core/models/ticket.model';
 import {
   AssetPatchStatus,
   ComplianceReportRow,
+  IssuedPatchAgentKey,
   MaintenanceWindow,
   MaintenanceWindowRecurrence,
   Patch,
@@ -57,12 +58,22 @@ export class PatchService {
     return firstValueFrom(this.http.get<AssetPatchStatus[]>(`/api/patches/assets/${assetId}/status`));
   }
 
-  generateAgentKey(assetId: string): Promise<PatchAgentKey> {
-    return firstValueFrom(this.http.post<PatchAgentKey>(`/api/patches/assets/${assetId}/agent-key`, {}));
+  /** Metadata for the asset's agent key, or null when none has been issued yet. */
+  async getAgentKey(assetId: string): Promise<PatchAgentKey | null> {
+    try {
+      return await firstValueFrom(this.http.get<PatchAgentKey>(`/api/patches/assets/${assetId}/agent-key`));
+    } catch (err) {
+      if (err instanceof HttpErrorResponse && err.status === 404) return null;
+      throw err;
+    }
   }
 
-  rotateAgentKey(assetId: string): Promise<PatchAgentKey> {
-    return firstValueFrom(this.http.post<PatchAgentKey>(`/api/patches/assets/${assetId}/agent-key/rotate`, {}));
+  generateAgentKey(assetId: string): Promise<IssuedPatchAgentKey> {
+    return firstValueFrom(this.http.post<IssuedPatchAgentKey>(`/api/patches/assets/${assetId}/agent-key`, {}));
+  }
+
+  rotateAgentKey(assetId: string): Promise<IssuedPatchAgentKey> {
+    return firstValueFrom(this.http.post<IssuedPatchAgentKey>(`/api/patches/assets/${assetId}/agent-key/rotate`, {}));
   }
 
   listMaintenanceWindows(): Promise<MaintenanceWindow[]> {

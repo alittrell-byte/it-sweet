@@ -23,6 +23,12 @@ export class UnauthorizedError extends AppError {
   }
 }
 
+export class ConflictError extends AppError {
+  constructor(message = 'Conflict') {
+    super(409, message);
+  }
+}
+
 export class BadRequestError extends AppError {
   constructor(message = 'Bad request') {
     super(400, message);

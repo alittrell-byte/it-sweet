@@ -1,15 +1,13 @@
-import { randomBytes } from 'crypto';
+import { generateApiKey, hashApiKey } from '../../common/apiKeys';
 import { LogEntry, LogSeverity } from './logEntry.model';
 import { LogSource, LogSourceType } from './logSource.model';
 import { emitLogEntry } from './logEvents';
 import { parseLogFields } from './logParsers';
 
-export function generateApiKey(): string {
-  return randomBytes(24).toString('hex');
-}
+export { generateApiKey };
 
 export async function findSourceByApiKey(apiKey: string): Promise<LogSource | null> {
-  return LogSource.findOne({ where: { apiKey } });
+  return LogSource.findOne({ where: { apiKeyHash: hashApiKey(apiKey) } });
 }
 
 let unregisteredSourceId: string | null = null;
@@ -24,7 +22,7 @@ async function getUnregisteredSource(): Promise<LogSource> {
   }
   const [source] = await LogSource.findOrCreate({
     where: { name: 'Unregistered' },
-    defaults: { name: 'Unregistered', type: 'syslog' as LogSourceType, apiKey: generateApiKey() },
+    defaults: { name: 'Unregistered', type: 'syslog' as LogSourceType, apiKeyHash: hashApiKey(generateApiKey()) },
   });
   unregisteredSourceId = source.id;
   return source;
