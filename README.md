@@ -119,6 +119,10 @@ npm run backend:test            # Jest unit + integration tests (needs a reachab
 npm run --workspace frontend test   # Angular/Karma unit tests
 ```
 
+GitHub Actions runs the same checks on every pull request and on pushes to `main`
+(`.github/workflows/ci.yml`): the backend build and Jest suite against a throwaway Postgres 16
+service, and the frontend production build plus Karma tests in headless Chrome.
+
 ## Repository layout
 
 ```
