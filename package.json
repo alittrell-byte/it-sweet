@@ -14,5 +14,10 @@
     "backend:build": "npm run build --workspace backend",
     "frontend:dev": "npm start --workspace frontend",
     "frontend:build": "npm run build --workspace frontend"
+  },
+  "overrides": {
+    "sanitize-html": {
+      "postcss": "^8.5.27"
+    }
   }
 }
