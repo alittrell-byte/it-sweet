@@ -173,19 +173,23 @@ export async function removeWatcher(req: Request, res: Response): Promise<void> 
   res.status(204).send();
 }
 
+const uploadAttachmentSchema = z.object({ commentId: z.string().uuid().optional() });
+
 export async function uploadAttachment(req: Request, res: Response): Promise<void> {
   const file = req.file;
   if (!file) {
     res.status(400).json({ error: 'No file uploaded' });
     return;
   }
+  // Multipart fields arrive as strings; validate the optional comment link like any other body.
+  const { commentId } = uploadAttachmentSchema.parse(req.body);
   const attachment = await ticketService.addAttachment(
     Number(req.params.id),
     {
       fileName: file.originalname,
       mimeType: file.mimetype,
       buffer: file.buffer,
-      commentId: req.body.commentId,
+      commentId,
     },
     req.user!
   );
@@ -198,8 +202,11 @@ export async function downloadAttachment(req: Request, res: Response): Promise<v
     req.params.attachmentId,
     req.user!
   );
+  // res.attachment() quotes and RFC 5987-encodes the uploader-supplied name; interpolating it
+  // raw breaks the header on a `"` and garbles non-ASCII names. It also guesses Content-Type
+  // from the extension, so set the stored type after it.
+  res.attachment(attachment.fileName);
   res.setHeader('Content-Type', attachment.mimeType);
-  res.setHeader('Content-Disposition', `attachment; filename="${attachment.fileName}"`);
   res.send(buffer);
 }
 

@@ -348,6 +348,14 @@ export async function addAttachment(
   if (input.buffer.length > MAX_ATTACHMENT_BYTES) {
     throw new BadRequestError('Attachment exceeds the 25MB size limit');
   }
+  // An attachment may only hang off a comment on this same ticket - otherwise a caller could
+  // attach a file to a comment on a ticket they can't see (and customers to internal notes).
+  if (input.commentId) {
+    const comment = await TicketComment.findOne({
+      where: { id: input.commentId, ticketId: ticket.id, ...(actor.role === 'customer' ? { isInternal: false } : {}) },
+    });
+    if (!comment) throw new BadRequestError('Comment not found on this ticket');
+  }
   const key = `tickets/${ticket.id}/${Date.now()}-${input.fileName}`;
   await storageProvider.put({ key, body: input.buffer, contentType: input.mimeType });
   return TicketAttachment.create({
